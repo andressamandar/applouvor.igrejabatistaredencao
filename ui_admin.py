@@ -66,7 +66,7 @@ def gerenciar_datas():
             'Data': data_input.strftime("%d/%m/%Y"),  # Mostra formato brasileiro
             'Tipo': tipo
         }
-        datas_df = datas_df.append(nova_data, ignore_index=True)
+        datas_df = pd.concat([datas_df, pd.DataFrame([nova_data])], ignore_index=True)
         datas_df.drop_duplicates(inplace=True)
         salvar_datas(datas_df)
         st.success(f"Data adicionada: {data_input.strftime('%d/%m/%Y')} com sucesso!")
