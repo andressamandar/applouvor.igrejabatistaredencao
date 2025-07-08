@@ -3,6 +3,8 @@ import json
 import os
 import pandas as pd
 
+
+
 ARQ_LOUVORES = "louvores.json"
 
 def carregar_louvores():
@@ -17,6 +19,9 @@ def salvar_louvores(data):
         json.dump(data, f, indent=4, ensure_ascii=False)
 
 def interface_admin_louvores(datas):
+    st.markdown("[Drive do Ministério de Louvor](https://drive.google.com/drive/u/0/folders/1ME4qbcuD7ZKzhC8OVAcuIfPoLaraooTF)", unsafe_allow_html=True)
+    st.write("Link para verificar cifras, mapa vocal, divisões de vozes")
+    
     st.subheader("Gerenciar Louvores por Data")
 
     louvores = carregar_louvores()
