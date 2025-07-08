@@ -7,7 +7,11 @@ import pandas as pd
 
 ARQ_LOUVORES = "louvores.json"
 
+
 def carregar_louvores():
+    st.markdown("[Drive do Ministério de Louvor](https://drive.google.com/drive/u/0/folders/1ME4qbcuD7ZKzhC8OVAcuIfPoLaraooTF)", unsafe_allow_html=True) 
+    st.write("Link para verificar cifras, mapa vocal, divisões de vozes")
+    
     if os.path.exists(ARQ_LOUVORES):
         with open(ARQ_LOUVORES, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -19,9 +23,7 @@ def salvar_louvores(data):
         json.dump(data, f, indent=4, ensure_ascii=False)
 
 def interface_admin_louvores(datas):
-    st.markdown("[Drive do Ministério de Louvor](https://drive.google.com/drive/u/0/folders/1ME4qbcuD7ZKzhC8OVAcuIfPoLaraooTF)", unsafe_allow_html=True)
-    st.write("Link para verificar cifras, mapa vocal, divisões de vozes")
-    
+   
     st.subheader("Gerenciar Louvores por Data")
 
     louvores = carregar_louvores()
@@ -55,7 +57,7 @@ def interface_integrantes_louvores():
     louvores = carregar_louvores()
 
     if not louvores:
-        st.info("Ainda não há louvores cadastrados pela liderança.")
+        st.info("Ainda não há louvores do mês adicionados pela liderança.")
         return
 
     datas = sorted(louvores.keys(), key=lambda d: pd.to_datetime(d, dayfirst=True))  # Ordena datas
