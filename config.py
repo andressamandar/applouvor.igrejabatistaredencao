@@ -1,0 +1,5 @@
+ARQ_DATAS = "datas_cultos.csv"
+ARQ_DISPONIBILIDADE = "disponibilidade.csv"
+ARQ_ESCALA_FINAL = "escala_final.csv"
+ARQ_FUNCOES = "nomes_funções.xlsx"
+ADMIN_SENHA = "admin.ibr"
