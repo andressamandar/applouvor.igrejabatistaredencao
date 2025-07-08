@@ -1,5 +1,6 @@
 import streamlit as st
 from data_manager import carregar_datas, carregar_disponibilidade, salvar_disponibilidade
+import pandas as pd
 
 
 def aplicar_estilo():
@@ -89,7 +90,7 @@ def interface_disponibilidade():
                 data = row['Data']
                 disponivel = True if disponibilidade_total else not checkboxes.get(data, False)
                 nova_linha = {'Nome': nome, 'Data': data, 'Disponivel': disponivel}
-                disp_df = disp_df.append(nova_linha, ignore_index=True)
+                disp_df = pd.concat([disp_df, pd.DataFrame([nova_linha])], ignore_index=True)
 
             salvar_disponibilidade(disp_df)
             st.success("Disponibilidade registrada com sucesso!")
