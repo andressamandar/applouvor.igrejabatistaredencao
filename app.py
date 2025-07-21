@@ -1,3 +1,4 @@
+
 import streamlit as st
 from data_manager import inicializa_csvs, carregar_funcoes
 from session_manager import check_login
