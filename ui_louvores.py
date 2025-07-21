@@ -9,8 +9,9 @@ ARQ_LOUVORES = "louvores.json"
 
 
 def carregar_louvores():
+    st.write("Link do drive para acessar cifras, mapa vocal, divisões de vozes e partituras:")
     st.markdown("[Drive do Ministério de Louvor](https://drive.google.com/drive/u/0/folders/1ME4qbcuD7ZKzhC8OVAcuIfPoLaraooTF)", unsafe_allow_html=True) 
-    st.write("Link para verificar cifras, mapa vocal, divisões de vozes")
+    
     
     if os.path.exists(ARQ_LOUVORES):
         with open(ARQ_LOUVORES, "r", encoding="utf-8") as f:
