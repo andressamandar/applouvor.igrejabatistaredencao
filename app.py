@@ -84,7 +84,7 @@ def main():
             interface_escala_do_mes()
 
     elif menu == "Admin":
-        st.title("🔒 Área do Administrador")
+        st.markdown("<h1 style='color:#115a8a;'> 🔒 Área do Administrador", unsafe_allow_html=True)
         admin_opcao = st.selectbox("Selecione a opção desejada:", ["Liderança"])
 
         if admin_opcao == "Liderança":
