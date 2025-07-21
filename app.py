@@ -69,8 +69,7 @@ def main():
     st.sidebar.title("☰ Menu")
     menu = st.sidebar.radio("Ir para:", ["Integrantes", "Admin"])
 
-
-if menu == "Integrantes":
+    if menu == "Integrantes":
         st.title("👥 Área dos Integrantes")
         tabs = st.tabs(["📆 Disponibilidade", "🎶 Louvores por Escala", "🗓️ Escala do Mês"])
 
@@ -83,7 +82,7 @@ if menu == "Integrantes":
         with tabs[2]:
             interface_escala_do_mes()
 
-elif menu == "Admin":
+    elif menu == "Admin":
         st.title("🔒 Área do Administrador")
         admin_opcao = st.selectbox("Selecione a opção desejada:", ["Liderança"])
 
