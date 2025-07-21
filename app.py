@@ -38,12 +38,33 @@ def aplicar_estilo():
         h1, h2, h3 {
             color: var(--cor-principal);
         }
-        details summary {
-            color: var(--cor-principal);
-            font-weight: 600;
+        /* Estilos adicionais para melhorar a estética */
+        .stTabs [data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
+            font-size: 1rem; /* Aumenta o tamanho da fonte das abas */
         }
-        label.css-18ni7ap {
-            margin-left: 10px;
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 10px; /* Espaçamento entre as abas */
+        }
+        .stTabs [data-baseweb="tab-list"] button {
+            background-color: #e0e0e0;
+            border-radius: 5px 5px 0 0;
+            padding: 10px 15px;
+            color: var(--cor-principal);
+            font-weight: bold;
+        }
+        .stTabs [data-baseweb="tab-list"] button[aria-selected="true"] {
+            background-color: var(--cor-principal);
+            color: white;
+            border-bottom: 3px solid #0a3a5e;
+        }
+        .stDateInput > label, .stTextInput > label, .stSelectbox > label, .stMultiselect > label {
+            font-weight: bold;
+            color: var(--cor-principal);
+        }
+        .stDataFrame {
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
         </style>
     """, unsafe_allow_html=True)
