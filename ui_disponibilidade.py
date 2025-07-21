@@ -56,7 +56,7 @@ def interface_disponibilidade():
     disp_df = carregar_disponibilidade()
 
     
-    st.title("Disponibilidade")
+    st.markdown("<h1 style='color:#115a8a;'> Disponibilidade", unsafe_allow_html=True)
     st.markdown("Marque abaixo os dias em que você **NÃO poderá participar**:")
 
 
