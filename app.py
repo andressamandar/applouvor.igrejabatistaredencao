@@ -9,7 +9,7 @@ from ui_escala_integrantes import interface_escala_do_mes
 
 # Configurações da página (nome da aba, ícone, layout)
 st.set_page_config(
-    page_title="Escala de Louvor",
+    page_title="Ministério de Louvor Rendeção",
     page_icon="🎵",
     layout="wide"
 )
