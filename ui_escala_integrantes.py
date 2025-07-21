@@ -26,7 +26,7 @@ def aplicar_emojis(celula):
     return ", ".join(FUNCAO_EMOJI_MAP.get(f, f) for f in funcoes)
 
 def interface_escala_do_mes():
-    st.subheader("📋 Escala do Mês")
+    st.markdown("<h1 style='color:#115a8a;'> Escala do Mês", unsafe_allow_html=True)
 
     try:
         escala_df = pd.read_csv(ARQ_ESCALA)
