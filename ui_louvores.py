@@ -9,19 +9,32 @@ ARQ_LOUVORES = "louvores.json"
 
 
 def carregar_louvores():
-    st.write("Link do drive para acessar cifras, mapa vocal, divisões de vozes e partituras:")
-    st.markdown("[Drive do Ministério de Louvor](https://drive.google.com/drive/u/0/folders/1ME4qbcuD7ZKzhC8OVAcuIfPoLaraooTF)", unsafe_allow_html=True) 
+    st.markdown("<p style='font-size:16px;'>🎼 Acesse o drive para verificar partituras, mapa vocal, divisão de vozes e cifras.</p>", unsafe_allow_html=True)
+
+    st.markdown(
+        """
+        <a href="https://drive.google.com/drive/u/0/folders/1ME4qbcuD7ZKzhC8OVAcuIfPoLaraooTF" target="_blank">
+            <button style='background-color:#115a8a; color:white; padding:10px 20px; border:none; border-radius:8px; cursor:pointer; font-size:16px;'>
+                Acessar o Drive 🎵
+            </button>
+        </a>
+        """,
+        unsafe_allow_html=True
+    )
     
-    
+
     if os.path.exists(ARQ_LOUVORES):
         with open(ARQ_LOUVORES, "r", encoding="utf-8") as f:
             return json.load(f)
     else:
         return {}
 
+
+
 def salvar_louvores(data):
     with open(ARQ_LOUVORES, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=4, ensure_ascii=False)
+        
 
 def interface_admin_louvores(datas):
    
@@ -53,8 +66,9 @@ def interface_admin_louvores(datas):
                 st.session_state["refresh"] = True
 
 def interface_integrantes_louvores():
-    st.subheader("Louvores por Escala")
-
+    st.markdown("<h1 style='color:#115a8a;'> Louvores por Escala", unsafe_allow_html=True)
+    st.markdown("Selecione a data da sua escala e confira quais serão os louvores:")
+    
     louvores = carregar_louvores()
 
     if not louvores:
