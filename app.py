@@ -70,8 +70,9 @@ def main():
     menu = st.sidebar.radio("Ir para:", ["Integrantes", "Admin"])
 
     if menu == "Integrantes":
-        st.title("👥 Área dos Integrantes")
+        st.markdown("<h1 style='color:#115a8a;'>👥 Área dos Integrantes</h1>", unsafe_allow_html=True)
         tabs = st.tabs(["📆 Disponibilidade", "🎶 Louvores por Escala", "🗓️ Escala do Mês"])
+
 
         with tabs[0]:
             interface_disponibilidade()
