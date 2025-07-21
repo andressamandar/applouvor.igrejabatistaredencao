@@ -67,9 +67,11 @@ def interface_admin_louvores(datas):
 
 def interface_integrantes_louvores():
     st.markdown("<h1 style='color:#115a8a;'> Louvores por Escala", unsafe_allow_html=True)
-    st.markdown("Selecione a data da sua escala e confira quais serão os louvores:")
+    
     
     louvores = carregar_louvores()
+    
+    st.markdown("Selecione a data da sua escala e confira quais serão os louvores:")
 
     if not louvores:
         st.info("Ainda não há louvores do mês adicionados pela liderança.")
