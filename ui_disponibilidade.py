@@ -1,97 +1,101 @@
+
 import streamlit as st
-from data_manager import carregar_datas, carregar_disponibilidade, salvar_disponibilidade
+from mongo_manager import salvar_disponibilidade, carregar_datas, carregar_disponibilidade, carregar_integrantes
 import pandas as pd
 
-
-def aplicar_estilo():
-    st.markdown("""
-        <style>
-        /* Cor principal */
-        :root {
-            --cor-principal: #115a8a;
-        }
-
-        /* Fundo branco e fonte moderna */
-        body, .stApp {
-            background-color: #f9f9f9;
-            font-family: 'Segoe UI', sans-serif;
-        }
-
-        /* Botões personalizados */
-        .stButton>button {
-            background-color: var(--cor-principal);
-            color: white;
-            border-radius: 8px;
-            padding: 8px 16px;
-            border: none;
-            transition: background-color 0.3s ease;
-        }
-
-        .stButton>button:hover {
-            background-color: #0e4e79;
-        }
-
-        /* Títulos coloridos */
-        h1, h2, h3 {
-            color: var(--cor-principal);
-        }
-
-        /* Expander com cor */
-        details summary {
-            color: var(--cor-principal);
-            font-weight: 600;
-        }
-
-        /* Checkboxes com margem */
-        label.css-18ni7ap {
-            margin-left: 10px;
-        }
-        </style>
-    """, unsafe_allow_html=True)
-
 def interface_disponibilidade():
-    aplicar_estilo()  # Chama o estilo global, se ainda não chamou no app principal
+    st.title("📅 Disponibilidade para Cultos")
 
-    datas_df = carregar_datas()
-    disp_df = carregar_disponibilidade()
+    # --- NOVO: Exibir mensagem de sucesso persistente após o rerun ---
+    if 'success_message_disp' in st.session_state and st.session_state['success_message_disp']:
+        st.success(st.session_state['success_message_disp'])
+        # Limpa a mensagem para que ela não seja exibida novamente em reruns subsequentes
+        st.session_state['success_message_disp'] = ""
+    # --- FIM NOVO ---
 
-    
-    st.markdown("<h1 style='color:#115a8a;'> Disponibilidade", unsafe_allow_html=True)
-    st.markdown("Marque abaixo os dias em que você **NÃO poderá participar**:")
+    integrantes = carregar_integrantes()
+    # Adicionado tratamento para o caso de 'Nome' estar com 'n' minúsculo
+    nomes = [item['nome'] if 'nome' in item else item.get('Nome') for item in integrantes if 'nome' in item or 'Nome' in item]
+    nomes = [n for n in nomes if n is not None] # Remove None entries if any
 
+    # --- INÍCIO DA MUDANÇA PARA RESET DO SELECTBOX (do passo anterior) ---
+    # 1. Inicializa a variável de sessão que controlará o selectbox
+    if 'selected_integrante_nome_disp' not in st.session_state:
+        st.session_state['selected_integrante_nome_disp'] = ""
 
-    lista_nomes = ["Selecione seu nome"] + st.session_state.get('integrantes', [])
-    nome = st.selectbox("Selecione seu nome:", lista_nomes)
+    # 2. Usa a variável de sessão para definir o valor do selectbox
+    #    'index' é usado para definir qual opção está selecionada.
+    #    Encontra o índice do valor atual na lista de opções.
+    try:
+        current_index = ([""] + nomes).index(st.session_state['selected_integrante_nome_disp'])
+    except ValueError:
+        # Fallback if the name is not found (e.g., deleted from DB), reset to empty
+        current_index = 0
+        st.session_state['selected_integrante_nome_disp'] = ""
 
-    if nome == "Selecione seu nome":
-        st.warning("Por favor, selecione seu nome.")
+    nome = st.selectbox(
+        "Selecione seu nome:",
+        [""] + nomes,
+        key="integrante_nome_selectbox_disp", # Uma chave única para este selectbox
+        index=current_index # Define o valor inicial/atual
+    )
+
+    # 3. Atualiza a variável de sessão com o nome selecionado pelo usuário
+    #    Isso é importante para que o estado persista através das re-execuções
+    st.session_state['selected_integrante_nome_disp'] = nome
+    # --- FIM DA MUDANÇA PARA RESET DO SELECTBOX ---
+
+    # Usamos st.session_state['selected_integrante_nome_disp'] para toda a lógica seguinte
+    if not st.session_state['selected_integrante_nome_disp']:
+        st.warning("Selecione seu nome para continuar.")
         return
 
-
-    # Verifica se já registrou disponibilidade
-    if nome and nome in disp_df['Nome'].unique():
-        st.warning("Usuário já registrou disponibilidade. Para alterar, fale com o Líder do louvor.")
+    # Carrega as datas disponíveis
+    datas = carregar_datas()
+    if not datas:
+        st.warning("Nenhuma data cadastrada. O administrador precisa adicionar datas.")
         return
 
-    disponibilidade_total = st.checkbox("Estou disponível para todos os cultos")
+    # Carrega disponibilidades anteriores
+    disponibilidade_existente = carregar_disponibilidade()
+    disponiveis_usuario = {
+        item["Data"]: item["Disponivel"]
+        for item in disponibilidade_existente if item["Nome"] == st.session_state['selected_integrante_nome_disp']
+    }
 
-    checkboxes = {}
+    st.markdown("---")
+    st.markdown("### Marque os dias que você estará disponível:")
 
-    if nome:
-        if not disponibilidade_total:
-            with st.expander("Selecionar dias NÃO DISPONÍVEIS"):
-                for i, row in datas_df.iterrows():
-                    data = row['Data']
-                    key = f"indisp_{data}"
-                    checkboxes[data] = st.checkbox(f"❌ Não estarei disponível em {data}", key=key)
+    respostas = {}
+    for item in datas:
+        data_str = item['Data']
+        tipo = item.get('Tipo', '')
+        # Chave da checkbox deve ser única para cada data E para cada integrante
+        chave = f"disp_{data_str}_{st.session_state['selected_integrante_nome_disp']}"
+        # Se não houver registro anterior, inicia marcado (True)
+        default = disponiveis_usuario.get(data_str, True)
+        respostas[data_str] = st.checkbox(f"{data_str} - {tipo}", key=chave, value=default)
 
-        if st.button("Salvar Disponibilidade"):
-            for i, row in datas_df.iterrows():
-                data = row['Data']
-                disponivel = True if disponibilidade_total else not checkboxes.get(data, False)
-                nova_linha = {'Nome': nome, 'Data': data, 'Disponivel': disponivel}
-                disp_df = pd.concat([disp_df, pd.DataFrame([nova_linha])], ignore_index=True)
+    # Verifica se o usuário já tem alguma disponibilidade salva
+    # Uma forma mais robusta é verificar se existe *alguma* entrada para este nome, não apenas se foi True.
+    disponibilidades_do_usuario = [
+        item for item in disponibilidade_existente if item["Nome"] == st.session_state['selected_integrante_nome_disp']
+    ]
+    ja_salvo_anteriormente = len(disponibilidades_do_usuario) > 0
 
-            salvar_disponibilidade(disp_df)
-            st.success("Disponibilidade registrada com sucesso!")
-            st.session_state['refresh'] = not st.session_state.get('refresh', False)
+
+    if st.button("Salvar disponibilidade"):
+        if ja_salvo_anteriormente:
+            st.warning("Sua disponibilidade já foi salva para estas datas. Para fazer alterações, por favor, procure o líder de louvor.")
+        else:
+            for data_str, disp in respostas.items():
+                salvar_disponibilidade(st.session_state['selected_integrante_nome_disp'], data_str, disp)
+            
+            # --- MUDANÇA AQUI: Armazena a mensagem de sucesso na sessão ANTES do rerun ---
+            st.session_state['success_message_disp'] = "✅ Disponibilidades salvas com sucesso!"
+            # --- FIM MUDANÇA ---
+            
+            # --- RESET DO SELECTBOX E RERUN (do passo anterior) ---
+            st.session_state['selected_integrante_nome_disp'] = ""
+            st.rerun() # Força o Streamlit a reexecutar o script
+            # --- FIM RESET ---

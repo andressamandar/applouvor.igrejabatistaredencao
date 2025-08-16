@@ -1,31 +1,24 @@
-import streamlit as st
 import io
-import pandas as pd
-from data_manager import carregar_datas, carregar_disponibilidade, carregar_escala, carregar_funcoes, salvar_datas, salvar_escala
+from mongo_manager import (
+    carregar_louvores_lista, carregar_datas, salvar_data, excluir_data,
+    carregar_disponibilidade, carregar_funcoes, salvar_escala, carregar_escala, atualizar_louvores_escala
+)
 from session_manager import login_admin
+import streamlit as st
+import pandas as pd
+
 from ui_louvores import interface_admin_louvores, interface_integrantes_louvores
 
-# Gatilho de atualização
+FUNCAO_EMOJI_MAP = {
+    "Violão": "Violão🎶", "Teclado": "Teclado 🎹", "Cajon": "Cajon🥋",
+    "Bateria": "Bateria🥋", "Guitarra": "Guitarra 🎸", "Baixo": "Baixo 🎸",
+    "Soprano": "Soprano🎤", "Contralto": "Contralto🎤", "Tenor": "Tenor 🎤",
+    "Baritono": "Baritono 🎤", "Ministração": "MinistraçãoⓂ️",
+    "Sonoplastia": "Sonoplastia🔊", "Projeção": "Projeção🖥️",
+}
+
 def trigger_refresh():
     st.session_state['refresh'] = not st.session_state.get('refresh', False)
-
-# Mapeamento de funções para emojis
-FUNCAO_EMOJI_MAP = {
-    "Violão": "Violão🎶",
-    "Teclado": "Teclado 🎹",
-    "Cajon": "Cajon🥁",
-    "Bateria":"Bateria🥁",
-    "Guitarra": "Guitarra 🎸",
-    "Baixo": "Baixo 🎸", # Pode ser o mesmo ícone do violão ou um específico para baixo
-    "Soprano": "Soprano🎤",
-    "Contralto": "Contralto🎤",
-    "Tenor": "Tenor 🎤",
-    "Baritono": "Baritono 🎤",
-    "Ministração": "MinistraçãoⓂ️",
-    "Sonoplastia": "Sonoplastia🔊",
-    "Projeção": "Projeção🖥️",
-    # Adicione outras funções e seus emojis aqui
-}
 
 def interface_admin():
     if not st.session_state.get('admin_logado', False):
@@ -41,446 +34,226 @@ def interface_admin():
         return
 
     sub_menu = st.selectbox("Escolha uma opção de administração:", [
-        "Gerenciar Datas",
-        "Escalar Funções",
-        "Louvores",
-        "Download Escala Final"
+        "Gerenciar Datas", "Criar Escala", "Escolher Louvores","Gerenciar Louvores","Escala e Download"
     ])
 
-    datas_df = carregar_datas()
-    disp_df = carregar_disponibilidade()
-    escala_df = carregar_escala()
-    df_funcoes, FUNCOES, INTEGRANTES = carregar_funcoes()
-
-    st.session_state['datas_df'] = datas_df
-    st.session_state['disp_df'] = disp_df
-    st.session_state['escala_df'] = escala_df
-    st.session_state['df_funcoes'] = df_funcoes
-    st.session_state['funcoes'] = FUNCOES
-    st.session_state['integrantes'] = INTEGRANTES
+    # Carregar dados uma vez
+    if 'datas_df' not in st.session_state:
+        st.session_state['datas_df'] = pd.DataFrame(carregar_datas())
+    if 'disp_df' not in st.session_state:
+        st.session_state['disp_df'] = pd.DataFrame(carregar_disponibilidade())
+    if 'df_funcoes' not in st.session_state or 'funcoes' not in st.session_state:
+        df_funcoes, FUNCOES, INTEGRANTES = carregar_funcoes()
+        st.session_state['df_funcoes'] = df_funcoes
+        st.session_state['funcoes'] = FUNCOES
+        st.session_state['integrantes'] = INTEGRANTES
 
     if sub_menu == "Gerenciar Datas":
         gerenciar_datas()
-    elif sub_menu == "Escalar Funções":
+    elif sub_menu == "Criar Escala":
         interface_escalar_funcoes()
-    elif sub_menu == "Louvores":
-        datas = datas_df['Data'].unique().tolist()
-        interface_admin_louvores(datas)
-    elif sub_menu == "Download Escala Final":
+    elif sub_menu == "Escolher Louvores":
+        interface_escolher_louvores()
+    elif sub_menu == "Gerenciar Louvores":
+         interface_admin_louvores()
+    elif sub_menu =="Escala e Download":
         download_escala_final()
 
 def gerenciar_datas():
     datas_df = st.session_state['datas_df']
     st.subheader("Cadastro de Datas de Cultos")
     data_input = st.date_input("Escolha uma data:", min_value=pd.to_datetime('today').date())
-    tipo = st.selectbox("Tipo de culto:", ["Ceia","Quinta", "Domingo", "Outros"])
+    tipo = st.selectbox("Tipo de culto:", ["Ceia", "Quinta", "Domingo", "Outros"])
 
     if st.button("Adicionar data"):
-        nova_data = {'Data': data_input.strftime("%d/%m/%Y"), 'Tipo': tipo}
-        datas_df = pd.concat([datas_df, pd.DataFrame([nova_data])], ignore_index=True)
-        datas_df.drop_duplicates(inplace=True)
-        salvar_datas(datas_df)
-        st.success(f"Data adicionada: {nova_data['Data']} com sucesso!")
+        data_str = data_input.strftime("%d/%m/%Y")
+        salvar_data(data_str, tipo)
+        st.success(f"Data adicionada: {data_str} com sucesso!")
+        st.session_state['datas_df'] = pd.DataFrame(carregar_datas())
         trigger_refresh()
 
     st.subheader("Datas cadastradas")
     st.dataframe(datas_df)
 
     st.subheader("Excluir data")
-    data_para_excluir = st.selectbox("Selecione a data a excluir:", datas_df['Data'].unique())
-    if st.button("Excluir data selecionada"):
-        datas_df = datas_df[datas_df['Data'] != data_para_excluir]
-        salvar_datas(datas_df)
-        st.success(f"Data {data_para_excluir} excluída com sucesso!")
-        trigger_refresh()
+    if not datas_df.empty:
+        data_para_excluir = st.selectbox("Selecione a data a excluir:", datas_df['Data'].unique())
+        if st.button("Excluir data selecionada"):
+            excluir_data(data_para_excluir)
+            st.success(f"Data {data_para_excluir} excluída com sucesso!")
+            st.session_state['datas_df'] = pd.DataFrame(carregar_datas())
+            trigger_refresh()
+    else:
+        st.info("Nenhuma data cadastrada.")
 
 def interface_escalar_funcoes():
     disp_df = st.session_state['disp_df']
-    escala_df = st.session_state['escala_df']
     df_funcoes = st.session_state['df_funcoes']
     FUNCOES = st.session_state['funcoes']
-    datas_df = st.session_state['datas_df']  # ✅ necessário para buscar tipo do culto
+    datas_df = st.session_state['datas_df']
+
+    if datas_df.empty:
+        st.warning("⚠️ Nenhuma data cadastrada ainda. Adicione datas antes de criar a escala.")
+        return
 
     datas_disponiveis = sorted(disp_df['Data'].unique())
-
-    # ✅ Ajustado para considerar só a parte da data nas colunas com tipo
-    datas_com_escala = []
-    for col in escala_df.columns:
-        if col == "Nome":
-            continue
-        data_col = col.split(" - ")[0]  # separa apenas a parte da data
-        if escala_df[col].dropna().astype(str).str.strip().replace('', pd.NA).dropna().shape[0] > 0:
-            datas_com_escala.append(data_col)
-
-    datas_para_escalar = [d for d in datas_disponiveis if d not in datas_com_escala]
+    datas_escaladas = [esc['Data'] for esc in carregar_escala()]
+    datas_para_escalar = [d for d in datas_disponiveis if d not in datas_escaladas]
 
     if not datas_para_escalar:
         st.warning("Todas as datas disponíveis já foram escaladas.")
         return
 
     data_escolhida = st.selectbox("Escolha a data para escalar:", datas_para_escalar)
-    tipo_culto = datas_df.loc[datas_df['Data'] == data_escolhida, 'Tipo'].values[0]  # ✅ pega o tipo de culto
-    col_name = f"{data_escolhida} - {tipo_culto}"  # ✅ coluna agora inclui tipo
+    tipo_culto = datas_df.loc[datas_df['Data'] == data_escolhida, 'Tipo'].values[0]
 
+    st.subheader("🎯 Escalar por Função")
     disponiveis = disp_df[(disp_df['Data'] == data_escolhida) & (disp_df['Disponivel'])]['Nome'].unique()
-
     if len(disponiveis) == 0:
         st.warning("Ninguém se disponibilizou para esta data ainda.")
         return
 
-    if 'Nome' not in escala_df.columns:
-        escala_df['Nome'] = []
-
+    escala_escolhidos = {}
+    ja_escalados = []
 
     for funcao in FUNCOES:
-        with st.expander(f"{funcao}"):
-            habilitados = df_funcoes[df_funcoes[funcao] == "ok"]['Nomes'].dropna().tolist()
-            candidatos = [n for n in disponiveis if n in habilitados]
+        habilitados = df_funcoes[df_funcoes[funcao] == "ok"]["Nome"].tolist()
+        candidatos = [n for n in disponiveis if n in habilitados]
 
-            for nome in candidatos:
-                key = f"{funcao}_{data_escolhida}_{nome}"
+        validos = []
+        desabilitados = []
+        for n in candidatos:
+            if funcao != "Ministração" and n in ja_escalados:
+                desabilitados.append(n)
+            else:
+                validos.append(n)
 
-                # Garante que a linha e a coluna existem
-                if nome not in escala_df['Nome'].values:
-                    escala_df = pd.concat([escala_df, pd.DataFrame([[nome]], columns=["Nome"])]).reset_index(drop=True)
-                if col_name not in escala_df.columns:
-                    escala_df[col_name] = ""
+        key_select = f"{funcao}_{data_escolhida}"
+        escolhido = st.selectbox(
+            f"{funcao}:",
+            [""] + validos,
+            key=key_select
+        )
 
-                linha_index = escala_df[escala_df['Nome'] == nome].index[0]
+        # Agora a mensagem de "já escalado" aparece **abaixo** do selectbox
+        if desabilitados:
+            st.markdown(", ".join([f"❌ {nome} já escalado em outra função" for nome in desabilitados]))
 
-                # Correção segura para evitar erro de tipo
-                valor_bruto = escala_df.at[linha_index, col_name]
-                atual = str(valor_bruto) if pd.notna(valor_bruto) else ""
-                funcoes_ja_escaladas = [f.strip() for f in atual.split(",") if f.strip()]
+        if escolhido:
+            escala_escolhidos[funcao] = escolhido
+            if funcao != "Ministração":
+                ja_escalados.append(escolhido)
 
-                conflito = funcao != "Ministração" and any(f != "Ministração" for f in funcoes_ja_escaladas)
+    if escala_escolhidos:
+        st.subheader("📋 Resumo da Escala")
+        for funcao, nome in escala_escolhidos.items():
+            st.write(f"{funcao}: {nome}")
 
-                datas_outras = []
-                for col in escala_df.columns[1:]:
-                    if col == col_name:
-                        continue
-                    if nome in escala_df['Nome'].values:
-                        linha = escala_df[escala_df['Nome'] == nome]
-                        val = linha[col].values[0]
-                        if isinstance(val, str) and val.strip():
-                            datas_outras.append(col)
-
-                label = nome + (f" (já escalado em: {', '.join(funcoes_ja_escaladas)})" if funcoes_ja_escaladas else "")
-                if conflito:
-                    st.checkbox(f"{label} ⚠️", key=key, value=False, disabled=True)
-                    continue
-
-                val = st.checkbox(label, key=key)
-                if datas_outras:
-                    st.caption(f"\u2003\u2003📅 Dias em outras escalas: {', '.join(datas_outras)}")
-
-                if val:
-                    if funcao not in atual:
-                        escala_df.at[linha_index, col_name] = atual + f"{funcao}, "
-
-    st.markdown("---")
-    
-    st.markdown("### ✅ Resumo das Escalas (pré-visualização)")
-    resumo_funcoes = {}
-    for funcao in FUNCOES:
-        for nome in disponiveis:
-            key = f"{funcao}_{data_escolhida}_{nome}"
-            if st.session_state.get(key):
-                resumo_funcoes.setdefault(funcao, []).append(nome)
-
-    if resumo_funcoes:
-        for funcao, nomes in resumo_funcoes.items():
-            st.markdown(f"**{funcao}:** {', '.join(nomes)}")
-    else:
-        st.info("Nenhuma função escalada ainda.")
-
-    st.markdown("---")
-
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("Salvar Escala", key="btn_salvar"):
-            for col in escala_df.columns[1:]:
-                escala_df[col] = escala_df[col].astype(str).str.rstrip(', ').replace('nan', '')
-            salvar_escala(escala_df)
-            st.session_state['escala_df'] = escala_df
-            st.session_state['escala_salva'] = True
-
-        if st.session_state.get('escala_salva'):
-            st.success("✅ Escala salva com sucesso!")
-            st.session_state['escala_salva'] = False
-
-    with col2:
-        if st.button("Limpar Escala", key="btn_limpar"):
-            escala_df = pd.DataFrame(columns=["Nome"])
-            salvar_escala(escala_df)
-            st.session_state['escala_df'] = escala_df
-            st.success("🪑 Escala limpa com sucesso!")
+        if st.button("Salvar Escala"):
+            escala_temp = []
+            for funcao, nome in escala_escolhidos.items():
+                item = next((p for p in escala_temp if p["Nome"] == nome), None)
+                if item:
+                    item["Funcoes"].append(funcao)
+                else:
+                    escala_temp.append({"Nome": nome, "Funcoes": [funcao]})
+            salvar_escala(data_escolhida, tipo_culto, escala_temp)
+            st.success(f"✅ Escala de {data_escolhida} salva com sucesso!")
             trigger_refresh()
-            
-           
 
-def download_escala_final():
-    escala_df = st.session_state['escala_df']
-
-    if escala_df.empty:
-        st.info("A escala final ainda não foi criada.")
+def interface_escolher_louvores():
+    st.subheader("🎶 Escolher Louvores por Data")
+    escalas = carregar_escala()
+    if not escalas:
+        st.warning("Nenhuma escala criada ainda.")
         return
 
-    # Remove colunas indesejadas como "Unnamed: 1"
-    escala_df = escala_df.loc[:, ~escala_df.columns.str.contains('^Unnamed')]
+    # Filtrar datas que ainda não tiveram louvores escolhidos
+    datas_disponiveis = sorted([e['Data'] for e in escalas if not e.get('Louvores')])
+    if not datas_disponiveis:
+        st.info("Todos os louvores já foram escolhidos para as datas.")
+        return
 
-    # Criar uma cópia para exibição com emojis
-    escala_df_display = escala_df.copy()
+    # Mostrar mensagem de sucesso persistente, se existir
+    if st.session_state.get('louvores_salvos'):
+        st.success(st.session_state['louvores_salvos'])
+        del st.session_state['louvores_salvos']
 
-    # Substituir nomes de funções por emojis para exibição
-    for col in escala_df_display.columns:
-        if col != "Nome":
-            escala_df_display[col] = escala_df_display[col].apply(
-                lambda x: ", ".join([FUNCAO_EMOJI_MAP.get(f.strip(), f.strip()) for f in str(x).split(',') if f.strip()]) if pd.notna(x) else ""
-            )
+    # Seleção de data
+    data_selecionada = st.selectbox("Escolha a data:", datas_disponiveis)
 
-    st.dataframe(escala_df_display)
+    # Carregar a escala da data selecionada
+    escala = next((e for e in escalas if e['Data'] == data_selecionada), None)
+    if not escala:
+        st.warning("Escala não encontrada para esta data.")
+        return
 
-    # Para download, use o DataFrame original (escala_df)
+    # 🔹 Pré-visualização da escala da data selecionada
+    st.subheader("📋 Escala desta data")
+    escala_df = pd.DataFrame([
+        {"Nome": p['Nome'], "Funcoes": ", ".join([FUNCAO_EMOJI_MAP.get(f, f) for f in p['Funcoes']])}
+        for p in escala['Escala']
+    ])
+    st.table(escala_df)
+
+    # Seleção dos louvores
+    louvores_cadastrados = carregar_louvores_lista()
+    lista_louvores = [l['louvor'] for l in louvores_cadastrados]
+
+    louvores_selecionados = st.multiselect(
+        "Selecione os louvores para esta data:",
+        options=lista_louvores,
+        default=escala.get('Louvores', [])
+    )
+
+    if st.button("Salvar Louvores"):
+        atualizar_louvores_escala(data_selecionada, louvores_selecionados)
+        st.session_state['louvores_salvos'] = f"Louvores atualizados para {data_selecionada}!"
+        st.rerun()
+
+
+
+
+def download_escala_final():
+    escalas = carregar_escala()
+    if not escalas:
+        st.info("Nenhuma escala salva ainda.")
+        return
+
+    st.subheader("🗓️ Escala Completa")
+    Nome = sorted(set(p['Nome'] for esc in escalas for p in esc['Escala']))
+    colunas = [f"{esc['Data']} - {esc['Tipo']}" for esc in escalas]
+    df = pd.DataFrame({"Nome": Nome})
+    for esc in escalas:
+        col = f"{esc['Data']} - {esc['Tipo']}"
+        temp = {p['Nome']: ", ".join(p['Funcoes']) for p in esc['Escala']}
+        df[col] = df['Nome'].map(temp).fillna("")
+
+    # Aplicar emojis
+    df_display = df.copy()
+    for col in df_display.columns[1:]:
+        df_display[col] = df_display[col].apply(
+            lambda x: ", ".join([FUNCAO_EMOJI_MAP.get(f.strip(), f.strip()) for f in x.split(',') if f.strip()]) if x else ""
+        )
+
+    st.dataframe(df_display, use_container_width=True)
+
+    # Botões de download
     towrite = io.BytesIO()
     with pd.ExcelWriter(towrite, engine='xlsxwriter') as writer:
-        escala_df.to_excel(writer, index=False, sheet_name='Escala')
+        df.to_excel(writer, index=False, sheet_name='Escala')
     processed_data = towrite.getvalue()
 
     st.download_button(
-        label="📅 Baixar Escala em Excel (.xlsx)",
+        label="📥 Baixar Escala em Excel (.xlsx)",
         data=processed_data,
         file_name="escala_final.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
     st.download_button(
-        label="📅 Baixar Escala em CSV",
-        data=escala_df.to_csv(index=False).encode('utf-8'),
+        label="📥 Baixar Escala em CSV",
+        data=df.to_csv(index=False).encode('utf-8'),
         file_name="escala_final.csv",
         mime="text/csv"
     )
-
-
-# import streamlit as st
-# import io
-# import pandas as pd
-# from data_manager import carregar_datas, carregar_disponibilidade, carregar_escala, carregar_funcoes, salvar_datas, salvar_escala
-# from session_manager import login_admin
-# from ui_louvores import interface_admin_louvores, interface_integrantes_louvores
-
-# # Gatilho de atualização
-# def trigger_refresh():
-#     st.session_state['refresh'] = not st.session_state.get('refresh', False)
-
-# def interface_admin():
-#     if not st.session_state.get('admin_logado', False):
-#         senha = st.text_input("Senha do Admin:", type="password")
-#         if st.button("Login"):
-#             if login_admin(senha):
-#                 st.success("Login realizado com sucesso!")
-#                 st.session_state['admin_logado'] = True
-#                 trigger_refresh()
-#                 return
-#             else:
-#                 st.warning("Senha incorreta")
-#         return
-
-#     sub_menu = st.selectbox("Escolha uma opção de administração:", [
-#         "Gerenciar Datas",
-#         "Escalar Funções",
-#         "Louvores",
-#         "Download Escala Final"
-#     ])
-
-#     datas_df = carregar_datas()
-#     disp_df = carregar_disponibilidade()
-#     escala_df = carregar_escala()
-#     df_funcoes, FUNCOES, INTEGRANTES = carregar_funcoes()
-
-#     st.session_state['datas_df'] = datas_df
-#     st.session_state['disp_df'] = disp_df
-#     st.session_state['escala_df'] = escala_df
-#     st.session_state['df_funcoes'] = df_funcoes
-#     st.session_state['funcoes'] = FUNCOES
-#     st.session_state['integrantes'] = INTEGRANTES
-
-#     if sub_menu == "Gerenciar Datas":
-#         gerenciar_datas()
-#     elif sub_menu == "Escalar Funções":
-#         interface_escalar_funcoes()
-#     elif sub_menu == "Louvores":
-#         datas = datas_df['Data'].unique().tolist()
-#         interface_admin_louvores(datas)
-#     elif sub_menu == "Download Escala Final":
-#         download_escala_final()
-
-# def gerenciar_datas():
-#     datas_df = st.session_state['datas_df']
-#     st.subheader("Cadastro de Datas de Cultos")
-#     data_input = st.date_input("Escolha uma data:", min_value=pd.to_datetime('today').date())
-#     tipo = st.selectbox("Tipo de culto:", ["Quinta", "Domingo", "Outros"])
-
-#     if st.button("Adicionar data"):
-#         nova_data = {'Data': data_input.strftime("%d/%m/%Y"), 'Tipo': tipo}
-#         datas_df = pd.concat([datas_df, pd.DataFrame([nova_data])], ignore_index=True)
-#         datas_df.drop_duplicates(inplace=True)
-#         salvar_datas(datas_df)
-#         st.success(f"Data adicionada: {nova_data['Data']} com sucesso!")
-#         trigger_refresh()
-
-#     st.subheader("Datas cadastradas")
-#     st.dataframe(datas_df)
-
-#     st.subheader("Excluir data")
-#     data_para_excluir = st.selectbox("Selecione a data a excluir:", datas_df['Data'].unique())
-#     if st.button("Excluir data selecionada"):
-#         datas_df = datas_df[datas_df['Data'] != data_para_excluir]
-#         salvar_datas(datas_df)
-#         st.success(f"Data {data_para_excluir} excluída com sucesso!")
-#         trigger_refresh()
-
-# def interface_escalar_funcoes():
-#     disp_df = st.session_state['disp_df']
-#     escala_df = st.session_state['escala_df']
-#     df_funcoes = st.session_state['df_funcoes']
-#     FUNCOES = st.session_state['funcoes']
-
-#     datas_disponiveis = sorted(disp_df['Data'].unique())
-#     datas_com_escala = [
-#         col for col in escala_df.columns if col != "Nome" and
-#         escala_df[col].dropna().astype(str).str.strip().replace('', pd.NA).dropna().shape[0] > 0
-#     ]
-#     datas_para_escalar = [d for d in datas_disponiveis if d not in datas_com_escala]
-
-#     if not datas_para_escalar:
-#         st.warning("Todas as datas disponíveis já foram escaladas.")
-#         return
-
-#     data_escolhida = st.selectbox("Escolha a data para escalar:", datas_para_escalar)
-#     disponiveis = disp_df[(disp_df['Data'] == data_escolhida) & (disp_df['Disponivel'])]['Nome'].unique()
-
-#     if len(disponiveis) == 0:
-#         st.warning("Ninguém se disponibilizou para esta data ainda.")
-#         return
-
-#     if 'Nome' not in escala_df.columns:
-#         escala_df['Nome'] = []
-
-#     st.markdown("### ✅ Resumo das Escalas (pré-visualização)")
-#     resumo_funcoes = {}
-#     for funcao in FUNCOES:
-#         for nome in disponiveis:
-#             key = f"{funcao}_{data_escolhida}_{nome}"
-#             if st.session_state.get(key):
-#                 resumo_funcoes.setdefault(funcao, []).append(nome)
-
-#     if resumo_funcoes:
-#         for funcao, nomes in resumo_funcoes.items():
-#             st.markdown(f"**{funcao}:** {', '.join(nomes)}")
-#     else:
-#         st.info("Nenhuma função escalada ainda.")
-
-#     st.markdown("---")
-
-#     for funcao in FUNCOES:
-#         with st.expander(f"{funcao}"):
-#             habilitados = df_funcoes[df_funcoes[funcao] == "ok"]['Nomes'].dropna().tolist()
-#             candidatos = [n for n in disponiveis if n in habilitados]
-
-#             for nome in candidatos:
-#                 col_name = data_escolhida
-#                 key = f"{funcao}_{data_escolhida}_{nome}"
-
-#                 # Garante que a linha e a coluna existem
-#                 if nome not in escala_df['Nome'].values:
-#                     escala_df = pd.concat([escala_df, pd.DataFrame([[nome]], columns=["Nome"])]).reset_index(drop=True)
-#                 if col_name not in escala_df.columns:
-#                     escala_df[col_name] = ""
-
-#                 linha_index = escala_df[escala_df['Nome'] == nome].index[0]
-
-#                 # Correção segura para evitar erro de tipo
-#                 valor_bruto = escala_df.at[linha_index, col_name]
-#                 atual = str(valor_bruto) if pd.notna(valor_bruto) else ""
-#                 funcoes_ja_escaladas = [f.strip() for f in atual.split(",") if f.strip()]
-
-#                 conflito = funcao != "Ministração" and any(f != "Ministração" for f in funcoes_ja_escaladas)
-
-#                 datas_outras = []
-#                 for col in escala_df.columns[1:]:
-#                     if col == col_name:
-#                         continue
-#                     if nome in escala_df['Nome'].values:
-#                         linha = escala_df[escala_df['Nome'] == nome]
-#                         val = linha[col].values[0]
-#                         if isinstance(val, str) and val.strip():
-#                             datas_outras.append(col)
-
-#                 label = nome + (f" (já escalado em: {', '.join(funcoes_ja_escaladas)})" if funcoes_ja_escaladas else "")
-#                 if conflito:
-#                     st.checkbox(f"{label} ⚠️", key=key, value=False, disabled=True)
-#                     continue
-
-#                 val = st.checkbox(label, key=key)
-#                 if datas_outras:
-#                     st.caption(f"\u2003\u2003📅 Dias em outras escalas: {', '.join(datas_outras)}")
-
-#                 if val:
-#                     if funcao not in atual:
-#                         escala_df.at[linha_index, col_name] = atual + f"{funcao}, "
-
-#     st.markdown("---")
-#     col1, col2 = st.columns(2)
-#     with col1:
-#         if st.button("Salvar Escala", key="btn_salvar"):
-#             for col in escala_df.columns[1:]:
-#                 escala_df[col] = escala_df[col].astype(str).str.rstrip(', ').replace('nan', '')
-#             salvar_escala(escala_df)
-#             st.session_state['escala_df'] = escala_df
-#             st.session_state['escala_salva'] = True
-
-#         if st.session_state.get('escala_salva'):
-#             st.success("✅ Escala salva com sucesso!")
-#             st.session_state['escala_salva'] = False
-
-#     with col2:
-#         if st.button("Limpar Escala", key="btn_limpar"):
-#             escala_df = pd.DataFrame(columns=["Nome"])
-#             salvar_escala(escala_df)
-#             st.session_state['escala_df'] = escala_df
-#             st.success("🪑 Escala limpa com sucesso!")
-#             trigger_refresh()
-
-
-# def download_escala_final():
-#     escala_df = st.session_state['escala_df']
-
-#     if escala_df.empty:
-#         st.info("A escala final ainda não foi criada.")
-#         return
-
-#     # Remove colunas indesejadas como "Unnamed: 1"
-#     escala_df = escala_df.loc[:, ~escala_df.columns.str.contains('^Unnamed')]
-
-#     st.dataframe(escala_df)
-
-#     towrite = io.BytesIO()
-#     with pd.ExcelWriter(towrite, engine='xlsxwriter') as writer:
-#         escala_df.to_excel(writer, index=False, sheet_name='Escala')
-#     processed_data = towrite.getvalue()
-
-#     st.download_button(
-#         label="📅 Baixar Escala em Excel (.xlsx)",
-#         data=processed_data,
-#         file_name="escala_final.xlsx",
-#         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-#     )
-
-#     st.download_button(
-#         label="📅 Baixar Escala em CSV",
-#         data=escala_df.to_csv(index=False).encode('utf-8'),
-#         file_name="escala_final.csv",
-#         mime="text/csv"
-#     )

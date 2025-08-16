@@ -1,103 +1,136 @@
-import streamlit as st
-import json
-import os
 import pandas as pd
+import streamlit as st
+from mongo_manager import (
+    carregar_louvores_lista,
+    salvar_louvor_bd,
+    excluir_louvor,
+    carregar_escala
+)
 
+# --- Interface de Administração ---
+def interface_admin_louvores():
+    st.subheader("🎵 Gerenciar Louvores")
+    st.info("Aqui você pode adicionar, editar ou remover louvores do banco de dados.")
 
+    tab_add, tab_view = st.tabs(["Adicionar/Editar Louvor", "Louvores Cadastrados"])
 
-ARQ_LOUVORES = "louvores.json"
+    # --- Aba para adicionar ou atualizar ---
+    with tab_add:
+        louvor_nome = st.text_input("Nome do Louvor:", key="louvor_nome_input")
+        link_youtube = st.text_input("Link do YouTube:", key="link_youtube_input")
+        tom_louvor = st.text_input("Qual o tom?", key="tom_louvor_input")
 
+        if st.button("Salvar Louvor"):
+            if louvor_nome.strip():
+                salvar_louvor_bd(louvor_nome.strip(), link_youtube.strip(), tom_louvor.strip())
+                st.success(f"louvor '{louvor_nome}' salvo com sucesso!")
+                st.rerun()
+            else:
+                st.warning("O nome do louvor é obrigatório.")
 
-def carregar_louvores():
-    st.markdown("<p style='font-size:16px;'>🎼 Acesse o drive para verificar partituras, mapa vocal, divisão de vozes e cifras.</p>", unsafe_allow_html=True)
+    # --- Aba para listar e excluir ---
+    with tab_view:
+        louvores = carregar_louvores_lista() or []
+        if louvores:
+            df_louvores = pd.DataFrame(louvores)
+            st.dataframe(df_louvores, use_container_width=True)
 
-    st.markdown(
-        """
-        <a href="https://drive.google.com/drive/u/0/folders/1ME4qbcuD7ZKzhC8OVAcuIfPoLaraooTF" target="_blank">
-            <button style='background-color:#115a8a; color:white; padding:10px 20px; border:none; border-radius:8px; cursor:pointer; font-size:16px;'>
-                Acessar o Drive 🎵
-            </button>
-        </a>
-        """,
-        unsafe_allow_html=True
-    )
-    
+            louvor_para_excluir = st.selectbox(
+                "Selecione um louvor para excluir:",
+                options=[""] + [l.get("louvor", "") for l in louvores if l.get("louvor")]
+            )
 
-    if os.path.exists(ARQ_LOUVORES):
-        with open(ARQ_LOUVORES, "r", encoding="utf-8") as f:
-            return json.load(f)
-    else:
-        return {}
+            if louvor_para_excluir and st.button("Excluir Louvor"):
+                excluir_louvor(louvor_para_excluir)
+                st.success(f"louvor '{louvor_para_excluir}' excluído com sucesso.")
+                st.rerun()
+        else:
+            st.info("Nenhum louvor cadastrado ainda.")
 
-
-
-def salvar_louvores(data):
-    with open(ARQ_LOUVORES, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4, ensure_ascii=False)
-        
-
-def interface_admin_louvores(datas):
-   
-    st.subheader("Gerenciar Louvores por Data")
-
-    louvores = carregar_louvores()
-
-    for data in datas:
-        with st.expander(f"Data: {data}", expanded=False):
-            if data not in st.session_state:
-                st.session_state[data] = louvores.get(data, [])
-            links = st.session_state[data]
-
-            for i in range(len(links)):
-                links[i] = st.text_input(f"Link do YouTube #{i+1}", value=links[i], key=f"{data}_link_{i}")
-
-            if st.button(f"+ Adicionar louvor para {data}"):
-                links.append("")
-                st.session_state[data] = links
-                st.session_state["refresh"] = True
-
-            if st.button(f"Salvar louvores {data}"):
-                links_filtrados = [l.strip() for l in links if l.strip()]
-                louvores[data] = links_filtrados
-                salvar_louvores(louvores)
-                st.success(f"Louvores para {data} salvos com sucesso!")
-                if data in st.session_state:
-                    del st.session_state[data]
-                st.session_state["refresh"] = True
 
 def interface_integrantes_louvores():
-    st.markdown("<h1 style='color:#115a8a;'> Louvores por Escala", unsafe_allow_html=True)
-    
-    
-    louvores = carregar_louvores()
-    
-    st.markdown("Selecione a data da sua escala e confira quais serão os louvores:")
+    st.title("🎶 Louvores por Escala")
 
-    if not louvores:
-        st.info("Ainda não há louvores do mês adicionados pela liderança.")
+    escalas = carregar_escala() or []
+    louvores_cadastrados = carregar_louvores_lista() or []
+
+    # Mapa completo: louvor -> {link, tom}
+    mapa_louvores = {
+        l.get("louvor"): {"link": l.get("link", ""), "tom": l.get("tom", "Não informado")}
+        for l in louvores_cadastrados
+    }
+
+    if not escalas:
+        st.warning("Nenhuma escala salva ainda.")
         return
 
-    datas = sorted(louvores.keys(), key=lambda d: pd.to_datetime(d, dayfirst=True))  # Ordena datas
+    st.markdown("### 🎥 Vídeos dos Louvores por Data")
 
-    for data in datas:
-        with st.expander(f"Louvores do dia {data}", expanded=False):
-            links = louvores.get(data, [])
-            if not links:
-                st.write("Nenhum vídeo cadastrado para esta data.")
+    # Ordena escalas por data
+    escalas_ordenadas = sorted(
+        escalas, key=lambda x: pd.to_datetime(x.get("Data", ""), dayfirst=True)
+    )
+
+    for esc in escalas_ordenadas:
+        data_tipo = f"{esc.get('Data', 'Data não informada')} - {esc.get('Tipo', '')}"
+        louvores = esc.get("louvores", [])
+
+        with st.expander(f"**{data_tipo}**"):
+            if louvores:
+                # Dividir em linhas de 3 colunas cada (galeria)
+                n_cols = 3
+                for i in range(0, len(louvores), n_cols):
+                    cols = st.columns(n_cols)
+                    for j, l in enumerate(louvores[i:i + n_cols]):
+                        col = cols[j]
+                        info = mapa_louvores.get(l, {"link": "", "tom": "Não informado"})
+                        link = info.get("link")
+                        tom = info.get("tom")
+                        with col:
+                            st.markdown(f"**{l}** — Tom: {tom}")
+                            if link:
+                                st.video(link, width=250)
+                            else:
+                                st.markdown("🔗 Link não disponível")
             else:
-                for link in links:
-                    # Extrai o ID do vídeo do YouTube do link completo
-                    video_id = None
-                    if "youtube.com/watch?v=" in link:
-                        video_id = link.split("v=")[-1].split("&")[0]
-                    elif "youtu.be/" in link:
-                        video_id = link.split(".be/")[-1].split("?")[0]
+                st.info("Nenhum louvor cadastrado para esta data.")
 
-                    if video_id:
-                        embed_url = f"https://www.youtube.com/embed/{video_id}"
-                        html_code = f'''
-                        <iframe width="320" height="180" src="{embed_url}" frameborder="0" allowfullscreen></iframe>
-                        '''
-                        st.markdown(html_code, unsafe_allow_html=True)
-                    else:
-                        st.write(f"Link inválido ou não suportado: {link}")
+
+def interface_admin_louvores():
+    st.subheader("🎵 Gerenciar louvores")
+    st.info("Aqui você pode adicionar, editar ou remover louvores do banco de dados.")
+
+    tab_add, tab_view = st.tabs(["Adicionar/Editar Louvor", "louvores Cadastrados"])
+
+    with tab_add:
+        st.subheader("Adicionar ou Atualizar Louvor")
+        louvor_nome = st.text_input("Nome do Louvor:", key="louvor_nome_input")
+        link_youtube = st.text_input("Link do YouTube:", key="link_youtube_input")
+        tom_louvor = st.text_input("Qual o tom?:", key="tom_louvor_input")
+
+        if st.button("Salvar Louvor"):
+            if louvor_nome:
+                salvar_louvor_bd(louvor_nome, link_youtube, tom_louvor)
+                st.success(f"Louvor '{louvor_nome}' salvo com sucesso!")
+                st.rerun()
+            else:
+                st.warning("O nome do louvor é obrigatório.")
+
+    with tab_view:
+        st.subheader("louvores Cadastrados")
+        louvores = carregar_louvores_lista()
+        if louvores:
+            df_louvores = pd.DataFrame(louvores)
+            st.dataframe(df_louvores, use_container_width=True)
+
+            louvor_para_excluir = st.selectbox(
+                "Selecione um louvor para excluir:",
+                options=[""] + [l['louvor'] for l in louvores]
+            )
+
+            if louvor_para_excluir and st.button("Excluir Louvor"):
+                excluir_louvor(louvor_para_excluir)
+                st.success(f"Louvor '{louvor_para_excluir}' excluído com sucesso.")
+                st.rerun()
+        else:
+            st.info("Nenhum louvor cadastrado ainda.")

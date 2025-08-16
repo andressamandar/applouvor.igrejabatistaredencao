@@ -1,13 +1,14 @@
 import streamlit as st
+from mongo_manager import carregar_escala, carregar_datas, carregar_louvores, carregar_funcoes
 import pandas as pd
+import io
 
-ARQ_ESCALA = "escala_final.csv"
-
+# Mapa de emojis para as funções
 FUNCAO_EMOJI_MAP = {
     "Violão": "Violão🎶",
     "Teclado": "Teclado 🎹",
-    "Cajon": "Cajon🥁",
-    "Bateria": "Bateria🥁",
+    "Cajon": "Cajon🥋",
+    "Bateria": "Bateria🥋",
     "Guitarra": "Guitarra 🎸",
     "Baixo": "Baixo 🎸",
     "Soprano": "Soprano🎤",
@@ -16,69 +17,113 @@ FUNCAO_EMOJI_MAP = {
     "Baritono": "Baritono 🎤",
     "Ministração": "MinistraçãoⓂ️",
     "Sonoplastia": "Sonoplastia🔊",
-    "Projeção": "Projeção🖥️"
+    "Projeção": "Projeção🖥️",
 }
 
-def aplicar_emojis(celula):
-    if pd.isna(celula):
-        return ""
-    funcoes = [f.strip() for f in str(celula).split(",") if f.strip()]
-    return ", ".join(FUNCAO_EMOJI_MAP.get(f, f) for f in funcoes)
+def exibir_minha_escala():
+    """Exibe a escala pessoal do integrante com função e louvores (nome + tom)."""
+    st.title("📅 Minha Escala")
+    
+    escalas = carregar_escala()
+    louvores_com_detalhes = carregar_louvores()
 
-def interface_escala_do_mes():
-    st.markdown("<h1 style='color:#115a8a;'> Escala do Mês", unsafe_allow_html=True)
+    # Dicionário para buscar tom do louvor
+    louvor_para_tom = {louvor.get('louvor'): louvor.get('tom') for louvor in louvores_com_detalhes}
 
-    try:
-        escala_df = pd.read_csv(ARQ_ESCALA)
-    except FileNotFoundError:
-        st.warning("A escala ainda não foi criada.")
-        return
-    except pd.errors.EmptyDataError:
-        st.warning("O arquivo de escala está vazio.")
-        return
-    except Exception as e:
-        st.error(f"Ocorreu um erro ao carregar a escala: {e}")
+    if not escalas:
+        st.info("Nenhuma escala salva ainda.")
         return
 
-    # Remove colunas indesejadas como "Unnamed: 0", "Unnamed: 1", etc.
-    escala_df = escala_df.loc[:, ~escala_df.columns.str.contains('^Unnamed')]
-
-    if escala_df.empty or "Nome" not in escala_df.columns:
-        st.info("Nenhum integrante escalado ainda.")
+    nomes_unicos = sorted({m.get('Nome') for e in escalas for m in e.get('Escala', [])})
+    if not nomes_unicos:
+        st.info("Nenhum integrante encontrado na escala.")
         return
 
-    nomes = escala_df["Nome"].dropna().unique().tolist()
-    nomes.sort()
+    # --- Adiciona opção inicial ---
+    opcoes_nomes = ["Selecione seu nome"] + nomes_unicos
+    nome_selecionado = st.selectbox("Selecione seu nome:", opcoes_nomes, index=0)
 
-    nome_escolhido = st.selectbox("Selecione seu nome para ver sua escala:", ["Selecione seu nome"] + nomes)
+    # Se o usuário não escolheu um nome válido, mostra aviso e retorna
+    if nome_selecionado == "Selecione seu nome":
+        st.info("Por favor, selecione seu nome para ver sua escala.")
+        return
 
-    # Botão para ver escala completa
-    if st.button("👥 Ver Escala Completa"):
-        st.markdown("### Escala Completa")
-        escala_com_emoji = escala_df.copy()
-        for col in escala_com_emoji.columns[1:]:  # Ignora a coluna "Nome"
-            escala_com_emoji[col] = escala_com_emoji[col].apply(aplicar_emojis)
-        st.dataframe(escala_com_emoji.set_index("Nome"))
-        st.markdown("---")
+    escala_pessoal = []
+    for escala in escalas:
+        data = escala.get('Data')
+        tipo = escala.get('Tipo')
+        louvores_data = escala.get('louvores', [])
 
-    if nome_escolhido and nome_escolhido != "Selecione seu nome":
-        st.markdown(f"### Escala de {nome_escolhido}")
+        participacao_do_integrante = next((m for m in escala.get('Escala', []) if m.get('Nome') == nome_selecionado), None)
 
-        linha = escala_df[escala_df["Nome"] == nome_escolhido]
+        if participacao_do_integrante:
+            funcoes = participacao_do_integrante.get('Funcoes', [])
+            funcoes_str = ", ".join(funcoes) if funcoes else "Sem função definida"
 
-        if linha.empty:
-            st.info("Você ainda não foi escalado este mês.")
-            return
+            # Criando lista com apenas nome do louvor e tom
+            louvores_detalhados = [
+                f"{louvor_nome} (Tom: {louvor_para_tom.get(louvor_nome, 'N/A')})"
+                for louvor_nome in louvores_data
+            ]
 
-        dados = []
-        for data in escala_df.columns[1:]:
-            funcoes = linha[data].values[0] if data in linha else ""
-            if pd.notna(funcoes) and str(funcoes).strip():
-                funcoes_com_emoji = aplicar_emojis(funcoes)
-                dados.append((data, funcoes_com_emoji))
+            escala_pessoal.append({
+                "Data": data,
+                "Tipo": tipo,
+                "Funcoes": funcoes_str,
+                "Louvores": louvores_detalhados
+            })
 
-        if dados:
-            for data, funcoes in dados:
-                st.markdown(f"📅 **{data}** — {funcoes}")
-        else:
-            st.info("Você ainda não foi escalado este mês.")
+    if not escala_pessoal:
+        st.info(f"Você não está escalado(a) neste mês.")
+    else:
+        st.subheader(f"🎤 Escala de {nome_selecionado}")
+        for item in escala_pessoal:
+            with st.expander(f"**🗓️ {item['Data']} - {item['Tipo']}**"):
+                st.markdown(f"**Função(s):** {item['Funcoes']}")
+                if item['Louvores']:
+                    st.markdown("**Louvores:**")
+                    for louvor in item['Louvores']:
+                        st.markdown(f"- {louvor}")
+                else:
+                    st.warning("Nenhum louvor cadastrado para esta data.")
+
+
+
+def exibir_escala_completa_integrantes():
+    """Exibe a escala completa para todos os integrantes, de forma simplificada."""
+    st.title("📋 Escala Completa")
+    
+    escalas = carregar_escala()
+    if not escalas:
+        st.info("Nenhuma escala salva ainda.")
+        return
+
+    nomes_unicos = sorted(list({p['Nome'] for esc in escalas for p in esc['Escala']}))
+    
+    # Cria o DataFrame para a escala
+    df = pd.DataFrame({"Nome": nomes_unicos})
+    for esc in escalas:
+        coluna_nome = f"{esc['Data']} - {esc['Tipo']}"
+        dict_funcoes = {p['Nome']: ", ".join(p['Funcoes']) for p in esc['Escala']}
+        df[coluna_nome] = df['Nome'].map(dict_funcoes).fillna("")
+
+    # Aplica os emojis na exibição
+    df_display = df.copy()
+    for col in df_display.columns[1:]:
+        df_display[col] = df_display[col].apply(
+            lambda x: ", ".join([FUNCAO_EMOJI_MAP.get(f.strip(), f.strip()) for f in x.split(',') if f.strip()]) if x else ""
+        )
+
+    st.dataframe(df_display, use_container_width=True)
+
+
+def interface_integrantes():
+    """Função principal que gerencia as abas da interface de integrantes."""
+    
+    tab1, tab2 = st.tabs(["Minha Escala", "Escala Completa"])
+
+    with tab1:
+        exibir_minha_escala()
+    
+    with tab2:
+        exibir_escala_completa_integrantes()

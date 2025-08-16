@@ -1,0 +1,147 @@
+:root {
+    --cor-principal: #115a8a;
+    --cor-principal-clara: #e0f2f7; /* Um azul mais claro para fundo ou hover */
+    --cor-principal-escura: #0e4e79; /* Um azul mais escuro para hover */
+    --cor-fundo-sidebar: #f0f8ff; /* Fundo do sidebar um azul bem clarinho */
+    --cor-texto-padrao: #333; /* Cor padrão para textos */
+}
+
+/* Estilo geral do corpo e do app */
+body, .stApp {
+    background-color: #f9f9f9;
+    font-family: 'Segoe UI', sans-serif;
+}
+
+/* Estilo para todos os botões (já existia e foi aprimorado) */
+.stButton>button {
+    background-color: var(--cor-principal);
+    color: white;
+    border-radius: 8px;
+    padding: 8px 16px;
+    border: none;
+    transition: background-color 0.3s ease;
+    font-weight: 500;
+}
+.stButton>button:hover {
+    background-color: var(--cor-principal-escura);
+}
+
+/* Títulos de seção */
+h1, h2, h3 {
+    color: var(--cor-principal);
+}
+
+/* Estilos para o Sidebar */
+/* Seletores baseados nas classes geradas pelo Streamlit (testados, mas podem variar levemente entre versões) */
+section[data-testid="stSidebar"] {
+    background-color: var(--cor-fundo-sidebar);
+    border-right: 1px solid #ddd;
+    padding-top: 2rem; /* Espaçamento no topo */
+    box-shadow: 2px 0 5px rgba(0,0,0,0.1); /* Sutil sombra para dar profundidade */
+}
+
+/* Título do Sidebar (☰ Menu) */
+[data-testid="stSidebarContent"] .stMarkdown h1 {
+    color: var(--cor-principal); /* Cor principal para o título do menu */
+    text-align: center;
+    margin-bottom: 20px;
+    font-size: 1.8em;
+    font-weight: bold;
+}
+
+/* Esconder o círculo padrão do radio button e estilizar os labels */
+/* Isso faz com que cada opção de rádio se pareça com um botão */
+.stRadio > label {
+    /* Oculta o input de rádio nativo */
+    display: flex !important;
+    align-items: center;
+    justify-content: flex-start; /* Alinha o texto à esquerda */
+    
+    padding: 10px 15px;
+    margin: 5px 10px; /* Margem para separar os itens */
+    border-radius: 8px;
+    transition: background-color 0.3s, color 0.3s, transform 0.2s ease-out; /* Transições suaves */
+    cursor: pointer;
+    font-size: 1.1em; /* Aumenta o tamanho da fonte */
+    font-weight: 500;
+    color: var(--cor-texto-padrao); /* Cor do texto padrão */
+}
+
+/* Esconde o círculo visualmente */
+.stRadio label > div[data-testid="stWidgetLabel"] > div:first-child {
+    display: none !important;
+}
+
+/* Estilo do item de rádio selecionado */
+/* Usamos o seletor com `aria-checked="true"` que é mais robusto para Streamlit */
+.stRadio label[data-baseweb="radio"][aria-checked="true"] {
+    background-color: var(--cor-principal);
+    color: white;
+    font-weight: bold;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2); /* Sutil sombra no selecionado */
+}
+
+/* Efeito de Hover para os itens do menu (não selecionados) */
+.stRadio label[data-baseweb="radio"]:not([aria-checked="true"]):hover {
+    background-color: var(--cor-principal-clara);
+    color: var(--cor-principal-escura);
+    transform: translateX(5px); /* Pequeno efeito de deslize */
+}
+
+/* Efeito de Hover para o item de menu SELECIONADO */
+.stRadio label[data-baseweb="radio"][aria-checked="true"]:hover {
+    background-color: var(--cor-principal-escura); /* Fica um pouco mais escuro */
+    transform: scale(1.01); /* Pequeno zoom */
+}
+
+/* Ajustes para o texto dentro dos labels (se necessário para alinhamento) */
+.stRadio label > div[data-testid="stWidgetLabel"] > div:nth-child(2) {
+    padding-left: 0; /* Garante que não haja padding extra se o círculo for removido */
+}
+
+/* Ajustes nos títulos principais das áreas */
+.main [data-testid="stMarkdownContainer"] h1 {
+    text-align: center;
+    margin-top: 2rem;
+    margin-bottom: 1.5rem;
+    font-size: 2.2em;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+}
+
+/* Estilo para as abas (seções "Disponibilidade", "Louvores", "Escala") */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 15px;
+    justify-content: center; /* Centraliza as abas */
+    margin-top: 1.5rem;
+}
+
+.stTabs [data-baseweb="tab"] {
+    height: 50px;
+    white-space: nowrap;
+    background-color: #f0f0f0;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    gap: 10px;
+    padding: 0 20px;
+    transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+}
+
+.stTabs [data-baseweb="tab"] > div[data-testid="stText"] {
+    color: var(--cor-texto-padrao);
+    font-weight: 500;
+    font-size: 1.1em;
+}
+
+.stTabs [data-baseweb="tab-list"] button[aria-selected="true"] {
+    background-color: var(--cor-principal);
+    color: white !important;
+    border-color: var(--cor-principal);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+.stTabs [data-baseweb="tab-list"] button[aria-selected="true"] > div[data-testid="stText"] {
+    color: white !important; /* Garante que o texto da aba selecionada seja branco */
+}
+.stTabs [data-baseweb="tab"]:hover {
+    background-color: var(--cor-principal-clara);
+    border-color: var(--cor-principal);
+}

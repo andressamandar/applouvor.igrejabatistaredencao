@@ -1,5 +1,4 @@
-ARQ_DATAS = "datas_cultos.csv"
-ARQ_DISPONIBILIDADE = "disponibilidade.csv"
-ARQ_ESCALA_FINAL = "escala_final.csv"
-ARQ_FUNCOES = "nomes_funções.xlsx"
-ADMIN_SENHA = "admin.ibr"
+import hashlib
+
+MONGODB_URI = "mongodb+srv://adminDB:a25120913@cluster1.eqoejsj.mongodb.net/"
+PORTAL_LOUVOR = "portal_louvor"
