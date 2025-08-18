@@ -21,7 +21,7 @@ FUNCAO_EMOJI_MAP = {
 }
 
 def exibir_minha_escala():
-    """Exibe a escala pessoal do integrante com função e louvores (nome + tom)."""
+    """Exibe a escala pessoal do integrante com função e louvores (nome + tom) e permite download."""
     st.title("📅 Minha Escala")
     
     escalas = carregar_escala()
@@ -39,11 +39,8 @@ def exibir_minha_escala():
         st.info("Nenhum integrante encontrado na escala.")
         return
 
-    # --- Adiciona opção inicial ---
     opcoes_nomes = ["Selecione seu nome"] + nomes_unicos
     nome_selecionado = st.selectbox("Selecione seu nome:", opcoes_nomes, index=0)
-
-    # Se o usuário não escolheu um nome válido, mostra aviso e retorna
     if nome_selecionado == "Selecione seu nome":
         st.info("Por favor, selecione seu nome para ver sua escala.")
         return
@@ -54,16 +51,14 @@ def exibir_minha_escala():
         tipo = escala.get('Tipo')
         louvores_data = escala.get('louvores', [])
 
-        participacao_do_integrante = next((m for m in escala.get('Escala', []) if m.get('Nome') == nome_selecionado), None)
+        participante = next((m for m in escala.get('Escala', []) if m.get('Nome') == nome_selecionado), None)
 
-        if participacao_do_integrante:
-            funcoes = participacao_do_integrante.get('Funcoes', [])
+        if participante:
+            funcoes = participante.get('Funcoes', [])
             funcoes_str = ", ".join(funcoes) if funcoes else "Sem função definida"
 
-            # Criando lista com apenas nome do louvor e tom
             louvores_detalhados = [
-                f"{louvor_nome} (Tom: {louvor_para_tom.get(louvor_nome, 'N/A')})"
-                for louvor_nome in louvores_data
+                f"{l} (Tom: {louvor_para_tom.get(l, 'N/A')})" for l in louvores_data
             ]
 
             escala_pessoal.append({
@@ -75,22 +70,50 @@ def exibir_minha_escala():
 
     if not escala_pessoal:
         st.info(f"Você não está escalado(a) neste mês.")
-    else:
-        st.subheader(f"🎤 Escala de {nome_selecionado}")
-        for item in escala_pessoal:
-            with st.expander(f"**🗓️ {item['Data']} - {item['Tipo']}**"):
-                st.markdown(f"**Função:** {item['Funcoes']}")
-                if item['Louvores']:
-                    st.markdown("**Louvores:**")
-                    for louvor in item['Louvores']:
-                        st.markdown(f"- {louvor}")
-                else:
-                    st.warning("Nenhum louvor cadastrado para esta data.")
+        return
 
+    # --- Exibição na tela igual antes ---
+    st.subheader(f"🎤 Escala de {nome_selecionado}")
+    for item in escala_pessoal:
+        with st.expander(f"**🗓️ {item['Data']} - {item['Tipo']}**"):
+            st.markdown(f"**Função:** {item['Funcoes']}")
+            if item['Louvores']:
+                st.markdown("**Louvores:**")
+                for l in item['Louvores']:
+                    st.markdown(f"- {l}")
+            else:
+                st.warning("Nenhum louvor cadastrado para esta data.")
+
+    # --- Preparar tabela para download ---
+    df_download = pd.DataFrame([{
+        "Data": i["Data"],
+        "Tipo": i["Tipo"],
+        "Funcoes": i["Funcoes"],
+        "Louvores": ", ".join(i["Louvores"])
+    } for i in escala_pessoal])
+
+    # --- Download Excel ---
+    towrite = io.BytesIO()
+    with pd.ExcelWriter(towrite, engine='xlsxwriter') as writer:
+        df_download.to_excel(writer, index=False, sheet_name='Minha Escala')
+    st.download_button(
+        label="📥 Baixar Minha Escala (Excel)",
+        data=towrite.getvalue(),
+        file_name=f"escala_{nome_selecionado}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+    # --- Download CSV ---
+    st.download_button(
+        label="📥 Baixar Minha Escala (CSV)",
+        data=df_download.to_csv(index=False).encode('utf-8'),
+        file_name=f"escala_{nome_selecionado}.csv",
+        mime="text/csv"
+    )
 
 
 def exibir_escala_completa_integrantes():
-    """Exibe a escala completa para todos os integrantes, de forma simplificada."""
+    """Exibe a escala completa para todos os integrantes e permite download."""
     st.title("📋 Escala Completa")
     
     escalas = carregar_escala()
@@ -115,6 +138,19 @@ def exibir_escala_completa_integrantes():
         )
 
     st.dataframe(df_display, use_container_width=True)
+
+    # --- Botões de download ---
+    towrite = io.BytesIO()
+    with pd.ExcelWriter(towrite, engine='xlsxwriter') as writer:
+        df_display.to_excel(writer, index=False, sheet_name='Escala')
+    excel_data = towrite.getvalue()
+
+    st.download_button(
+        label="📥 Baixar Escala Completa em Excel (.xlsx)",
+        data=excel_data,
+        file_name="escala_completa.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
 
 def interface_integrantes():

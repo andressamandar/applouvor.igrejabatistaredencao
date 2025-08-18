@@ -99,3 +99,12 @@ def interface_disponibilidade():
             st.session_state['selected_integrante_nome_disp'] = ""
             st.rerun() # Força o Streamlit a reexecutar o script
             # --- FIM RESET ---
+
+
+def todos_preencheram_disponibilidade(data_escolhida, integrantes, disp_df):
+    """
+    Verifica se todos os integrantes já preencheram disponibilidade para a data escolhida.
+    """
+    nomes_integrantes = set(integrantes)
+    preenchidos = set(disp_df[disp_df['Data'] == data_escolhida]['Nome'])
+    return nomes_integrantes.issubset(preenchidos)

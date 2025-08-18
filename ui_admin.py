@@ -6,7 +6,7 @@ from mongo_manager import (
 from session_manager import login_admin
 import streamlit as st
 import pandas as pd
-
+from ui_disponibilidade import todos_preencheram_disponibilidade
 from ui_louvores import interface_admin_louvores, interface_integrantes_louvores
 
 FUNCAO_EMOJI_MAP = {
@@ -86,11 +86,21 @@ def gerenciar_datas():
     else:
         st.info("Nenhuma data cadastrada.")
 
+def todos_preencheram_disponibilidade(data_escolhida, integrantes, disp_df):
+    """
+    Verifica se todos os integrantes já preencheram disponibilidade para a data escolhida.
+    """
+    nomes_integrantes = set(integrantes)
+    preenchidos = set(disp_df[disp_df['Data'] == data_escolhida]['Nome'])
+    return nomes_integrantes.issubset(preenchidos)
+
+
 def interface_escalar_funcoes():
     disp_df = st.session_state['disp_df']
     df_funcoes = st.session_state['df_funcoes']
     FUNCOES = st.session_state['funcoes']
     datas_df = st.session_state['datas_df']
+    integrantes = st.session_state['integrantes']
 
     if datas_df.empty:
         st.warning("⚠️ Nenhuma data cadastrada ainda. Adicione datas antes de criar a escala.")
@@ -106,6 +116,12 @@ def interface_escalar_funcoes():
 
     data_escolhida = st.selectbox("Escolha a data para escalar:", datas_para_escalar)
     tipo_culto = datas_df.loc[datas_df['Data'] == data_escolhida, 'Tipo'].values[0]
+
+    # 🔹 Aviso se nem todos preencheram disponibilidade
+    if todos_preencheram_disponibilidade(data_escolhida, integrantes, disp_df):
+        st.success("✅ Todos os integrantes já preencheram a disponibilidade!")
+    else:
+        st.warning("⚠️ Ainda existem integrantes que não preencheram a disponibilidade.")
 
     st.subheader("🎯 Escalar por Função")
     disponiveis = disp_df[(disp_df['Data'] == data_escolhida) & (disp_df['Disponivel'])]['Nome'].unique()
@@ -135,7 +151,6 @@ def interface_escalar_funcoes():
             key=key_select
         )
 
-        # Agora a mensagem de "já escalado" aparece **abaixo** do selectbox
         if desabilitados:
             st.markdown(", ".join([f"❌ {nome} já escalado em outra função" for nome in desabilitados]))
 
@@ -160,6 +175,7 @@ def interface_escalar_funcoes():
             salvar_escala(data_escolhida, tipo_culto, escala_temp)
             st.success(f"✅ Escala de {data_escolhida} salva com sucesso!")
             trigger_refresh()
+
 
 def interface_escolher_louvores():
     st.subheader("🎶 Escolher Louvores por Data")
@@ -241,7 +257,7 @@ def download_escala_final():
     # Botões de download
     towrite = io.BytesIO()
     with pd.ExcelWriter(towrite, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False, sheet_name='Escala')
+        df_display.to_excel(writer, index=False, sheet_name='Escala')
     processed_data = towrite.getvalue()
 
     st.download_button(
