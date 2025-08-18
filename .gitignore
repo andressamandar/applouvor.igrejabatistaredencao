@@ -1,2 +1,63 @@
-.env
-secrets.toml
+# ==============================
+# PYTHON
+# ==============================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ==============================
+# JUPYTER NOTEBOOK
+# ==============================
+.ipynb_checkpoints/
+
+# ==============================
+# STREAMLIT
+# ==============================
+# Segredos NUNCA devem ir pro GitHub
+.streamlit/secrets.toml
+
+# Cache e configs locais
+.streamlit/config.toml
+.streamlit/config.yaml
+.streamlit/credentials.toml
+
+# ==============================
+# SISTEMA / EDITORES
+# ==============================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# ==============================
+# ARQUIVOS TEMPORÁRIOS
+# ==============================
+*.log
+*.tmp
+*.bak
+*.old
+
+# ==============================
+# PLANILHAS / EXPORTS
+# ==============================
+*.csv
+*.xlsx
+*.xls
+*.ods
+
+# ==============================
+# BACKUPS
+# ==============================
+*.zip
+*.tar
+*.tar.gz
+*.7z
+

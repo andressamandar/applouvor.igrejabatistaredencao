@@ -79,7 +79,7 @@ def exibir_minha_escala():
         st.subheader(f"🎤 Escala de {nome_selecionado}")
         for item in escala_pessoal:
             with st.expander(f"**🗓️ {item['Data']} - {item['Tipo']}**"):
-                st.markdown(f"**Função(s):** {item['Funcoes']}")
+                st.markdown(f"**Função:** {item['Funcoes']}")
                 if item['Louvores']:
                     st.markdown("**Louvores:**")
                     for louvor in item['Louvores']:

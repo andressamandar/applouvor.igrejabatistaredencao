@@ -1,18 +1,14 @@
 from pymongo import MongoClient
-import os
-from dotenv import load_dotenv
 import pandas as pd
 import sys
+import streamlit as st
 
-# Carregar variáveis do arquivo .env
-load_dotenv()
-
-# Pegar URI e nome do banco do .env
-mongo_uri = os.getenv("MONGODB_URI")
-db_name = os.getenv("PORTAL_LOUVOR")
-
-if not mongo_uri or not db_name:
-    print("ERRO CRÍTICO: MONGO_URI ou PORTAL_LOUVOR não encontrados no .env", file=sys.stderr)
+# ==================== CONEXÃO COM MONGODB =====================
+try:
+    mongo_uri = st.secrets["MONGODB_URI"]
+    db_name = st.secrets["PORTAL_LOUVOR"]
+except Exception as e:
+    print("ERRO CRÍTICO: Variáveis MONGODB_URI ou PORTAL_LOUVOR não encontradas em st.secrets", file=sys.stderr)
     sys.exit(1)
 
 # Conectar ao MongoDB
@@ -24,6 +20,7 @@ except Exception as e:
     print(f"ERRO CRÍTICO: Falha ao conectar ao MongoDB. Detalhes: {e}", file=sys.stderr)
     sys.exit(1)
 
+# Collections
 datas_col = db["datas"]
 disponibilidades_col = db["disponibilidades"]
 funcoes_col = db["funcoes"]
