@@ -7,8 +7,8 @@ import io
 FUNCAO_EMOJI_MAP = {
     "Violão": "Violão🎶",
     "Teclado": "Teclado 🎹",
-    "Cajon": "Cajon🥋",
-    "Bateria": "Bateria🥋",
+    "Cajon": "Cajon🥁",
+    "Bateria": "Bateria🥁",
     "Guitarra": "Guitarra 🎸",
     "Baixo": "Baixo 🎸",
     "Soprano": "Soprano🎤",
