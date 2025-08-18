@@ -6,7 +6,6 @@ from mongo_manager import (
 from session_manager import login_admin
 import streamlit as st
 import pandas as pd
-from ui_disponibilidade import todos_preencheram_disponibilidade
 from ui_louvores import interface_admin_louvores, interface_integrantes_louvores
 
 FUNCAO_EMOJI_MAP = {
