@@ -64,7 +64,7 @@ def interface_disponibilidade():
     }
 
     st.markdown("---")
-    st.markdown("### Marque os dias que você estará disponível:")
+    st.markdown("### Desmarque os dias que você NÃO estará disponível:")
 
     respostas = {}
     for item in datas:
