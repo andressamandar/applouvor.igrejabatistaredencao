@@ -51,6 +51,15 @@ def interface_admin_louvores():
 def interface_integrantes_louvores():
     st.title("🎶 Louvores por Escala")
 
+    # --- Botão Drive + descrição ---
+    st.link_button(
+        "📂 Drive",
+        "https://drive.google.com/drive/folders/1ME4qbcuD7ZKzhC8OVAcuIfPoLaraooTF"
+    )
+    st.caption(
+        "🔗 Link do DRIVE para acessar **partituras, cifras, mapa vocal, divisão de vozes, planilha tonalidades**"
+    )
+
     escalas = carregar_escala() or []
     louvores_cadastrados = carregar_louvores_lista() or []
 
