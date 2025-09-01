@@ -9,11 +9,11 @@ import pandas as pd
 from ui_louvores import interface_admin_louvores, interface_integrantes_louvores
 
 FUNCAO_EMOJI_MAP = {
-    "Violão": "Violão🎶", "Teclado": "Teclado 🎹", "Cajon": "Cajon🥁",
-    "Bateria": "Bateria🥁", "Guitarra": "Guitarra 🎸", "Baixo": "Baixo 🎸",
-    "Soprano": "Soprano🎤", "Contralto": "Contralto🎤", "Tenor": "Tenor 🎤",
-    "Baritono": "Baritono 🎤", "Ministração": "MinistraçãoⓂ️",
-    "Sonoplastia": "Sonoplastia🔊", "Projeção": "Projeção🖥️",
+    "Ministração": "MinistraçãoⓂ️","Soprano": "Soprano🎤","Contralto": "Contralto🎤",
+    "Tenor": "Tenor 🎤","Baritono": "Baritono 🎤","Teclado": "Teclado 🎹",
+    "Violão": "Violão🎶","Cajon": "Cajon🥁","Bateria": "Bateria🥁", 
+    "Guitarra": "Guitarra 🎸", "Baixo": "Baixo 🎸", "Projeção": "Projeção🖥️",
+    "Sonoplastia": "Sonoplastia🔊"
 }
 
 def trigger_refresh():
