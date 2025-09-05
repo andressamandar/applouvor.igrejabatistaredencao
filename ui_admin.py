@@ -43,7 +43,7 @@ def interface_admin():
         return
 
     sub_menu = st.selectbox("Escolha uma opção de administração:", [
-        "Gerenciar Datas", "Criar Escala", "Escolher Louvores","Gerenciar Louvores","Escala e Download"
+        "Gerenciar datas", "Criar escala", "Editar escala", "Escolher louvores","Gerenciar louvores","Escala e Download"
     ])
 
     # Carregar dados uma vez
@@ -57,16 +57,19 @@ def interface_admin():
         st.session_state['funcoes'] = FUNCOES
         st.session_state['integrantes'] = INTEGRANTES
 
-    if sub_menu == "Gerenciar Datas":
+    if sub_menu == "Gerenciar datas":
         gerenciar_datas()
-    elif sub_menu == "Criar Escala":
+    elif sub_menu == "Criar escala":
         interface_escalar_funcoes()
-    elif sub_menu == "Escolher Louvores":
-        interface_escolher_louvores()
-    elif sub_menu == "Gerenciar Louvores":
+    elif sub_menu == "Editar escala":
+        interface_editar_escala()
+    elif sub_menu == "Gerenciar louvores":
          interface_admin_louvores()
+    elif sub_menu == "Escolher louvores":
+        interface_escolher_louvores()
     elif sub_menu =="Escala e Download":
         download_escala_final()
+  
 
 def gerenciar_datas():
     datas_df = st.session_state['datas_df']
@@ -86,7 +89,7 @@ def gerenciar_datas():
 
     st.subheader("Excluir data")
     if not datas_df.empty:
-        data_para_excluir = st.selectbox("Selecione a data a excluir:", datas_df['Data'].unique())
+        data_para_excluir = st.selectbox("Selecione a data a excluir (Atenção! Excluir uma data exclui todas informações relacionadas a ela):", datas_df['Data'].unique())
         if st.button("Excluir data selecionada"):
             excluir_data(data_para_excluir)
             st.success(f"Data {data_para_excluir} excluída com sucesso!")
@@ -213,6 +216,100 @@ def interface_escalar_funcoes():
 
         st.dataframe(df_display, use_container_width=True)
 
+# Adicione esta nova função ao seu arquivo (por exemplo, no ui_admin.py ou onde o código acima está)
+
+def interface_editar_escala():
+    disp_df = st.session_state['disp_df']
+    df_funcoes = st.session_state['df_funcoes']
+    FUNCOES = st.session_state['funcoes']
+    datas_df = st.session_state['datas_df']
+    integrantes = st.session_state['integrantes']
+
+    escalas_existentes = carregar_escala()
+    if not escalas_existentes:
+        st.warning("⚠️ Nenhuma escala foi criada ainda.")
+        return
+
+    # Lista de datas que já têm uma escala
+    datas_escaladas = sorted([esc['Data'] for esc in escalas_existentes])
+    
+    data_escolhida = st.selectbox("Escolha a data para editar a escala:", datas_escaladas)
+    
+    # Encontra a escala existente para a data
+    escala_atual = next((e for e in escalas_existentes if e['Data'] == data_escolhida), None)
+    if not escala_atual:
+        st.warning("Escala não encontrada para esta data. Por favor, crie uma primeiro.")
+        return
+
+    st.subheader("🎯 Editar Escala por Função")
+    disponiveis = disp_df[(disp_df['Data'] == data_escolhida) & (disp_df['Disponivel'])]['Nome'].unique()
+    
+    escala_escolhidos = {}
+    ja_escalados = []
+
+    for funcao in FUNCOES:
+        # Pega o nome do integrante que está na escala atual para esta função
+        integrante_na_escala = next((p['Nome'] for p in escala_atual['Escala'] if funcao in p['Funcoes']), "")
+
+        habilitados = df_funcoes[df_funcoes[funcao] == "ok"]["Nome"].tolist()
+        candidatos = [n for n in disponiveis if n in habilitados]
+
+        # Garante que o integrante atual da escala esteja nas opções
+        if integrante_na_escala and integrante_na_escala not in candidatos:
+            candidatos.append(integrante_na_escala)
+            
+        validos, desabilitados = [], []
+        for n in candidatos:
+            if n != integrante_na_escala and funcao != "Ministração" and n in ja_escalados:
+                desabilitados.append(n)
+            else:
+                validos.append(n)
+
+        # Remove o integrante atual da lista de ja_escalados, para que ele possa ser escolhido para outra função,
+        # caso a função inicial seja alterada.
+        if integrante_na_escala:
+            ja_escalados = [n for n in ja_escalados if n != integrante_na_escala]
+
+        key_select = f"editar_{funcao}_{data_escolhida}"
+        
+        # Define a opção padrão do selectbox como o integrante que já está na escala
+        default_index = 0
+        if integrante_na_escala in validos:
+            default_index = validos.index(integrante_na_escala) + 1 # +1 por causa do ""
+
+        escolhido = st.selectbox(
+            f"{funcao}:",
+            [""] + validos,
+            index=default_index,
+            key=key_select
+        )
+        
+        if desabilitados:
+            st.markdown(", ".join([f"❌ {nome} já escalado em outra função" for nome in desabilitados]))
+        
+        if escolhido:
+            escala_escolhidos[funcao] = escolhido
+            if funcao != "Ministração":
+                ja_escalados.append(escolhido)
+
+    if escala_escolhidos:
+        st.subheader("📋 Pré-visualização da Escala Editada")
+        for funcao, nome in escala_escolhidos.items():
+            st.write(f"{funcao}: {nome}")
+
+        if st.button("Salvar Edição da Escala"):
+            escala_temp = []
+            for funcao, nome in escala_escolhidos.items():
+                item = next((p for p in escala_temp if p["Nome"] == nome), None)
+                if item:
+                    item["Funcoes"].append(funcao)
+                else:
+                    escala_temp.append({"Nome": nome, "Funcoes": [funcao]})
+
+            tipo_culto = datas_df.loc[datas_df['Data'] == data_escolhida, 'Tipo'].values[0]
+            salvar_escala(data_escolhida, tipo_culto, escala_temp)
+            st.success(f"✅ Escala de {data_escolhida} atualizada com sucesso!")
+            st.rerun() # Use st.rerun() para atualizar a interface
 
 def interface_escolher_louvores():
     st.subheader("🎶 Escolher Louvores por Data")

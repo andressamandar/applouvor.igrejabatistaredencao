@@ -144,3 +144,10 @@ def carregar_funcoes():
         df_funcoes_pivot = pd.DataFrame(columns=['Nome'] + FUNCOES)
 
     return df_funcoes_pivot, FUNCOES, INTEGRANTES
+
+def atualizar_louvor_bd(nome_antigo, novo_nome, link, tom):
+    louvores_col.update_one(
+        {"louvor": nome_antigo},
+        {"$set": {"louvor": novo_nome, "link": link, "tom": tom}}
+    )
+    print(f"DEBUG: Louvor '{nome_antigo}' atualizado para '{novo_nome}'.")
