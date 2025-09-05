@@ -4,7 +4,7 @@ from mongo_manager import salvar_disponibilidade, carregar_datas, carregar_dispo
 import pandas as pd
 
 def interface_disponibilidade():
-    st.title("📅 Disponibilidade para Cultos")
+    st.title("📅 Disponibilidade")
 
     # --- NOVO: Exibir mensagem de sucesso persistente após o rerun ---
     if 'success_message_disp' in st.session_state and st.session_state['success_message_disp']:
