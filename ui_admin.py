@@ -7,6 +7,15 @@ from session_manager import login_admin
 import streamlit as st
 import pandas as pd
 from ui_louvores import interface_admin_louvores, interface_integrantes_louvores
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import Paragraph
+from reportlab.platypus import LongTable
+from reportlab.lib.pagesizes import landscape, A4
+from reportlab.lib.styles import ParagraphStyle
 
 FUNCAO_EMOJI_MAP = {
     "Ministração": "MinistraçãoⓂ️","Soprano": "Soprano🎤","Contralto": "Contralto🎤",
@@ -287,4 +296,56 @@ def download_escala_final():
         data=df.to_csv(index=False).encode('utf-8'),
         file_name="escala_final.csv",
         mime="text/csv"
+    )
+    
+    # Download PDF
+    pdf_buffer = io.BytesIO()
+    doc = SimpleDocTemplate(pdf_buffer, pagesize=landscape(A4))
+    styles = getSampleStyleSheet()
+    style_normal = ParagraphStyle(name='Normal', fontSize=7, leading=12, wordWrap='CJK')
+    elements = []
+
+    elements.append(Paragraph("Escala Completa", styles["Title"]))
+    elements.append(Paragraph(" ", style_normal))
+
+    # Cabeçalho
+    colunas = df.columns.tolist()
+    data = [colunas]
+
+    # Linhas da tabela
+    for _, row in df.iterrows():
+        linha = []
+        for col in colunas:
+            valor = row[col]
+            if col != "Nome":
+                valor = Paragraph(valor.replace(", ", "<br/>"), style_normal)
+            linha.append(valor)
+        data.append(linha)
+
+    # Largura das colunas
+    col_widths = [70] + [90 for _ in range(len(colunas)-1)]
+
+    # Usa LongTable para quebrar em múltiplas páginas
+    table = LongTable(data, colWidths=col_widths, repeatRows=1)
+
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,0), colors.lightblue),
+        ("TEXTCOLOR", (0,0), (-1,0), colors.black),
+        ("ALIGN", (0,0), (-1,-1), "CENTER"),
+        ("VALIGN", (0,0), (-1,-1), "TOP"),
+        ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
+        ("FONTSIZE", (0,0), (-1,-1), 9),
+        ("BOTTOMPADDING", (0,0), (-1,0), 6),
+        ("GRID", (0,0), (-1,-1), 0.5, colors.grey),
+    ]))
+
+    elements.append(table)
+    doc.build(elements)
+    pdf_data = pdf_buffer.getvalue()
+
+    st.download_button(
+        label="📥 Baixar Escala Completa em PDF",
+        data=pdf_data,
+        file_name="escala_completa.pdf",
+        mime="application/pdf"
     )
