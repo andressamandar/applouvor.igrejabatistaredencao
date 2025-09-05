@@ -5,3 +5,4 @@ fpdf
 xlsxwriter
 pymongo
 python-dotenv
+reportlab
