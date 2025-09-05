@@ -74,7 +74,11 @@ def exibir_minha_escala():
         st.info(f"Você não está escalado(a) neste mês.")
         return
 
-    # --- Exibição na tela igual antes ---
+    # --- Ordenar por data (dd/mm/yyyy) ---
+    from datetime import datetime
+    escala_pessoal.sort(key=lambda x: datetime.strptime(x['Data'], "%d/%m/%Y"))
+
+    # --- Exibição na tela ---
     st.subheader(f"🎤 Escala de {nome_selecionado}")
     for item in escala_pessoal:
         with st.expander(f"**🗓️ {item['Data']} - {item['Tipo']}**"):
@@ -93,42 +97,26 @@ def exibir_minha_escala():
         "Funcoes": i["Funcoes"],
         "Louvores": ", ".join(i["Louvores"])
     } for i in escala_pessoal])
-    
-            # --- Download PDF ---
+
+    # --- Download PDF ---
     pdf_buffer = io.BytesIO()
     doc = SimpleDocTemplate(pdf_buffer, pagesize=A4)
     styles = getSampleStyleSheet()
     style_normal = styles["Normal"]
     elements = []
 
-    # Título
     elements.append(Paragraph(f"Escala de {nome_selecionado}", styles["Title"]))
     elements.append(Paragraph(" ", style_normal))  # espaço
 
     # Cabeçalho da tabela
-    data = [["Data", "Tipo", "Funções", "Louvores"]]
+    data_pdf = [["Data", "Tipo", "Funções", "Louvores"]]
 
     # Linhas da tabela
     for item in escala_pessoal:
-        funcoes_sem_emoji = item["Funcoes"]
+        louvores_formatados = Paragraph("<br/>".join(item["Louvores"]), style_normal) if item["Louvores"] else Paragraph("—", style_normal)
+        data_pdf.append([item["Data"], item["Tipo"], item["Funcoes"], louvores_formatados])
 
-        # Louvores como Paragraph (quebra automática de linha)
-        if item["Louvores"]:
-            louvores_formatados = Paragraph("<br/>".join(item["Louvores"]), style_normal)
-        else:
-            louvores_formatados = Paragraph("—", style_normal)
-
-        data.append([
-            item["Data"],
-            item["Tipo"],
-            funcoes_sem_emoji,
-            louvores_formatados
-        ])
-
-    # Criar tabela com larguras fixas para equilibrar
-    table = Table(data, colWidths=[80, 80, 120, 180])
-
-    # Estilo da tabela
+    table = Table(data_pdf, colWidths=[80, 80, 120, 180])
     table.setStyle(TableStyle([
         ("BACKGROUND", (0,0), (-1,0), colors.lightblue),
         ("TEXTCOLOR", (0,0), (-1,0), colors.black),
@@ -141,8 +129,6 @@ def exibir_minha_escala():
     ]))
 
     elements.append(table)
-
-    # Gerar PDF
     doc.build(elements)
     pdf_data = pdf_buffer.getvalue()
 
