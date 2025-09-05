@@ -1,3 +1,4 @@
+import datetime
 import io
 from mongo_manager import (
     carregar_louvores_lista, carregar_datas, salvar_data, excluir_data,
@@ -256,48 +257,54 @@ def interface_escolher_louvores():
         st.session_state['louvores_salvos'] = f"Louvores atualizados para {data_selecionada}!"
         st.rerun()
 
-
 def download_escala_final():
     escalas = carregar_escala()
     if not escalas:
         st.info("Nenhuma escala salva ainda.")
         return
 
+    # Ordena as escalas por data (dd/mm/yyyy)
+    escalas_ordenadas = sorted(
+        escalas,
+        key=lambda e: datetime.datetime.strptime(e['Data'], "%d/%m/%Y")
+    )
+
     st.subheader("🗓️ Escala Completa")
-    Nome = sorted(set(p['Nome'] for esc in escalas for p in esc['Escala']))
-    df = pd.DataFrame({"Nome": Nome})
-    for esc in escalas:
+    nomes_unicos = sorted(set(p['Nome'] for esc in escalas_ordenadas for p in esc['Escala']))
+    df = pd.DataFrame({"Nome": nomes_unicos})
+
+    for esc in escalas_ordenadas:
         col = f"{esc['Data']} - {esc['Tipo']}"
         temp = {p['Nome']: ", ".join(p['Funcoes']) for p in esc['Escala']}
         df[col] = df['Nome'].map(temp).fillna("")
 
+    # Exibição com emojis na tela
     df_display = df.copy()
     for col in df_display.columns[1:]:
         df_display[col] = df_display[col].apply(
             lambda x: ", ".join([FUNCAO_EMOJI_MAP.get(f.strip(), f.strip()) for f in x.split(',') if f.strip()]) if x else ""
         )
-
     st.dataframe(df_display, use_container_width=True)
 
+    # Download Excel
     towrite = io.BytesIO()
     with pd.ExcelWriter(towrite, engine='xlsxwriter') as writer:
         df_display.to_excel(writer, index=False, sheet_name='Escala')
-    processed_data = towrite.getvalue()
-
     st.download_button(
-        label="📥 Baixar Escala em Excel (.xlsx)",
-        data=processed_data,
-        file_name="escala_final.xlsx",
+        label="📥 Baixar Escala Completa em Excel (.xlsx)",
+        data=towrite.getvalue(),
+        file_name="escala_completa.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
+    # Download CSV
     st.download_button(
         label="📥 Baixar Escala em CSV",
         data=df.to_csv(index=False).encode('utf-8'),
-        file_name="escala_final.csv",
+        file_name="escala_completa.csv",
         mime="text/csv"
     )
-    
+
     # Download PDF
     pdf_buffer = io.BytesIO()
     doc = SimpleDocTemplate(pdf_buffer, pagesize=landscape(A4))
@@ -310,7 +317,7 @@ def download_escala_final():
 
     # Cabeçalho
     colunas = df.columns.tolist()
-    data = [colunas]
+    data_table = [colunas]
 
     # Linhas da tabela
     for _, row in df.iterrows():
@@ -320,14 +327,12 @@ def download_escala_final():
             if col != "Nome":
                 valor = Paragraph(valor.replace(", ", "<br/>"), style_normal)
             linha.append(valor)
-        data.append(linha)
+        data_table.append(linha)
 
     # Largura das colunas
     col_widths = [70] + [90 for _ in range(len(colunas)-1)]
 
-    # Usa LongTable para quebrar em múltiplas páginas
-    table = LongTable(data, colWidths=col_widths, repeatRows=1)
-
+    table = LongTable(data_table, colWidths=col_widths, repeatRows=1)
     table.setStyle(TableStyle([
         ("BACKGROUND", (0,0), (-1,0), colors.lightblue),
         ("TEXTCOLOR", (0,0), (-1,0), colors.black),

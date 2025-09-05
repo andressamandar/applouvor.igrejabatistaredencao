@@ -6,3 +6,4 @@ xlsxwriter
 pymongo
 python-dotenv
 reportlab
+datetime
