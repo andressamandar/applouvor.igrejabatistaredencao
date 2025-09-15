@@ -1,3 +1,4 @@
+from datetime import datetime
 import streamlit as st
 import pandas as pd
 from mongo_manager import (
@@ -7,7 +8,6 @@ from mongo_manager import (
     carregar_integrantes,
     carregar_escala
 )
-
 def interface_disponibilidade():
     st.title("📅 Disponibilidade")
 
@@ -57,18 +57,31 @@ def interface_disponibilidade():
         for item in disponibilidade_existente if item["Nome"] == st.session_state['selected_integrante_nome_disp']
     }
 
-    # Carrega escalas já montadas
+    # Carrega datas que já possuem escala montada
     escalas = carregar_escala() or []
+    datas_com_escala = {item["Data"] for item in escalas}
 
-    # Pega todas as datas que já estão na collection escala
-    datas_com_escala = set()
-    for e in escalas:
-        if "Data" in e:   # segurança contra docs diferentes
-            datas_com_escala.add(e["Data"])
+    # --- FILTRO: só esconde as datas que já têm escala montada ---
+    datas_filtradas = [
+        item for item in datas
+        if item["Data"] not in datas_com_escala
+    ]
+    # -------------------------------------------------------------
 
-    # --- FILTRO: remove datas que já estão na escala ---
-    datas_filtradas = [item for item in datas if item["Data"] not in datas_com_escala]
-    # ---------------------------------------------------
+    # --- NOVO: Ordena as datas filtradas cronologicamente ---
+    try:
+        datas_filtradas.sort(key=lambda x: datetime.strptime(x['Data'], '%d/%m/%Y'))
+    except (ValueError, TypeError):
+        # Em caso de erro, mantém a lista como está ou avisa o usuário
+        st.warning("Erro ao ordenar as datas. Verifique o formato DD/MM/AAAA.")
+    # -------------------------------------------------------
+    datas_do_usuario = set(disponiveis_usuario.keys())
+    datas_a_preencher = set([item['Data'] for item in datas_filtradas])
+    # --- NOVO: Verifica se o usuário já salvou a disponibilidade para todas as datas ---
+    if datas_a_preencher.issubset(datas_do_usuario) and len(datas_a_preencher) > 0:
+        st.warning("Disponibilidade já foi salva. Para alterações verifique com o líder.")
+        return
+    # ---------------------------------------------------------------------------------
 
     if not datas_filtradas:
         st.info("Nenhuma data disponível para preencher disponibilidade.")
@@ -82,7 +95,7 @@ def interface_disponibilidade():
         data_str = item['Data']
         tipo = item.get('Tipo', '')
         chave = f"disp_{data_str}_{st.session_state['selected_integrante_nome_disp']}"
-        default = disponiveis_usuario.get(data_str, True)  # mantém se já tiver marcado antes
+        default = disponiveis_usuario.get(data_str, True)  # mantém marcação anterior se já existir
         respostas[data_str] = st.checkbox(f"{data_str} - {tipo}", key=chave, value=default)
 
     if st.button("Salvar disponibilidade"):
