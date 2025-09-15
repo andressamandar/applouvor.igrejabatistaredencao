@@ -28,7 +28,7 @@ escala_col = db["escala"]
 louvores_col = db["louvores"]
 integrantes_col = db["integrantes"]
 
-# ==================== LOUVORES =====================
+# ==================== louvores =====================
 def salvar_louvor_bd(louvor_nome, link, tom):
     louvores_col.replace_one(
         {"louvor": louvor_nome},
@@ -72,8 +72,12 @@ def salvar_escala(data_str, tipo, escala_lista):
     escala_col.replace_one({"Data": data_str}, documento, upsert=True)
     print(f"DEBUG: Escala salva para {data_str} sem louvores.")
 
+
 def carregar_escala():
-    return list(escala_col.find({}, {"_id": 0}))
+    escalas = list(escala_col.find({}, {"_id": 0}))
+    for e in escalas:
+        e.setdefault('louvores', [])  # garante que o campo louvores exista
+    return escalas
 
 def atualizar_louvores_escala(data_str, louvores):
     escala_col.update_one(
@@ -81,19 +85,19 @@ def atualizar_louvores_escala(data_str, louvores):
         {"$set": {"louvores": louvores}},
         upsert=False
     )
-    print(f"DEBUG: Louvores atualizados para {data_str}: {louvores}")
+    print(f"DEBUG: louvores atualizados para {data_str}: {louvores}")
 
-# ==================== LOUVORES =====================
+# ==================== louvores =====================
 def carregar_louvores_lista():
     return list(louvores_col.find({}, {"_id": 0}))
 
 def salvar_louvor(data_str, louvores):
     if not data_str or not isinstance(louvores, list):
-        print(f"ERRO: Dados inválidos ao salvar louvor. Data: {data_str}, Louvores: {louvores}")
+        print(f"ERRO: Dados inválidos ao salvar louvor. Data: {data_str}, louvores: {louvores}")
         return
     louvores_col.replace_one(
         {"Data": data_str},
-        {"Data": data_str, "Louvores": louvores},
+        {"Data": data_str, "louvores": louvores},
         upsert=True
     )
     print(f"DEBUG: Louvor salvo para {data_str}.")
@@ -107,7 +111,7 @@ def carregar_louvores():
 
 def carregar_louvor_por_data(data_str):
     doc = louvores_col.find_one({"Data": data_str}, {"_id": 0})
-    return doc["Louvores"] if doc and "Louvores" in doc else []
+    return doc["louvores"] if doc and "louvores" in doc else []
 
 # ==================== FUNÇÕES DOS INTEGRANTES =====================
 def salvar_funcoes(nome, lista_funcoes):
@@ -151,3 +155,17 @@ def atualizar_louvor_bd(nome_antigo, novo_nome, link, tom):
         {"$set": {"louvor": novo_nome, "link": link, "tom": tom}}
     )
     print(f"DEBUG: Louvor '{nome_antigo}' atualizado para '{novo_nome}'.")
+    
+# No arquivo mongo_manager.py
+
+def atualizar_louvores_escala(data_escala, louvores_lista):
+ 
+    try:
+        escala_col.update_one(
+            {"Data": data_escala},
+            {"$set": {"louvores": louvores_lista}}
+        )
+        print(f"DEBUG: louvores atualizados para a escala de {data_escala}.")
+    except Exception as e:
+        print(f"ERRO: Falha ao atualizar louvores. Detalhes: {e}")
+        st.error(f"Erro ao salvar os louvores: {e}")

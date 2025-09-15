@@ -106,7 +106,6 @@ def todos_preencheram_disponibilidade(data_escolhida, integrantes, disp_df):
     preenchidos = set(disp_df[disp_df['Data'] == data_escolhida]['Nome'])
     return nomes_integrantes.issubset(preenchidos)
 
-
 def interface_escalar_funcoes():
     disp_df = st.session_state['disp_df']
     df_funcoes = st.session_state['df_funcoes']
@@ -118,14 +117,20 @@ def interface_escalar_funcoes():
         st.warning("⚠️ Nenhuma data cadastrada ainda. Adicione datas antes de criar a escala.")
         return
 
-    datas_disponiveis = sorted(disp_df['Data'].unique())
+    # 🔹 Todas as datas cadastradas
+    datas_cadastradas = sorted(datas_df['Data'].unique())
+
+    # 🔹 Datas que já têm escala criada
     datas_escaladas = [esc['Data'] for esc in carregar_escala()]
-    datas_para_escalar = [d for d in datas_disponiveis if d not in datas_escaladas]
+
+    # 🔹 Apenas as datas que ainda não têm escala
+    datas_para_escalar = [d for d in datas_cadastradas if d not in datas_escaladas]
 
     if not datas_para_escalar:
-        st.warning("Todas as datas disponíveis já foram escaladas.")
+        st.warning("Todas as datas cadastradas já foram escaladas.")
         return
 
+    # Escolher a data
     data_escolhida = st.selectbox("Escolha a data para escalar:", datas_para_escalar)
     tipo_culto = datas_df.loc[datas_df['Data'] == data_escolhida, 'Tipo'].values[0]
 
@@ -146,6 +151,8 @@ def interface_escalar_funcoes():
 
     # 🔹 Escala por função
     st.subheader("🎯 Escalar por Função")
+
+    # Apenas quem marcou disponível
     disponiveis = disp_df[(disp_df['Data'] == data_escolhida) & (disp_df['Disponivel'])]['Nome'].unique()
     if len(disponiveis) == 0:
         st.warning("Ninguém se disponibilizou para esta data ainda.")
@@ -193,6 +200,7 @@ def interface_escalar_funcoes():
                     item["Funcoes"].append(funcao)
                 else:
                     escala_temp.append({"Nome": nome, "Funcoes": [funcao]})
+
             salvar_escala(data_escolhida, tipo_culto, escala_temp)
             st.success(f"✅ Escala de {data_escolhida} salva com sucesso!")
             trigger_refresh()
@@ -215,8 +223,6 @@ def interface_escalar_funcoes():
             )
 
         st.dataframe(df_display, use_container_width=True)
-
-# Adicione esta nova função ao seu arquivo (por exemplo, no ui_admin.py ou onde o código acima está)
 
 def interface_editar_escala():
     disp_df = st.session_state['disp_df']
@@ -310,18 +316,15 @@ def interface_editar_escala():
             salvar_escala(data_escolhida, tipo_culto, escala_temp)
             st.success(f"✅ Escala de {data_escolhida} atualizada com sucesso!")
             st.rerun() # Use st.rerun() para atualizar a interface
-
 def interface_escolher_louvores():
-    st.subheader("🎶 Escolher Louvores por Data")
+    st.subheader("🎶 Escolher louvores por Data")
     escalas = carregar_escala()
     if not escalas:
         st.warning("Nenhuma escala criada ainda.")
         return
 
-    datas_disponiveis = sorted([e['Data'] for e in escalas if not e.get('Louvores')])
-    if not datas_disponiveis:
-        st.info("Todos os louvores já foram escolhidos para as datas.")
-        return
+    # Mostra todas as datas, não apenas as que ainda não têm louvores
+    datas_disponiveis = sorted([e['Data'] for e in escalas])
 
     if st.session_state.get('louvores_salvos'):
         st.success(st.session_state['louvores_salvos'])
@@ -343,15 +346,16 @@ def interface_escolher_louvores():
     louvores_cadastrados = carregar_louvores_lista()
     lista_louvores = [l['louvor'] for l in louvores_cadastrados]
 
+    # Mostra os louvores já salvos como padrão
     louvores_selecionados = st.multiselect(
         "Selecione os louvores para esta data:",
         options=lista_louvores,
-        default=escala.get('Louvores', [])
+        default=escala.get('louvores', [])
     )
 
-    if st.button("Salvar Louvores"):
+    if st.button("Salvar louvores"):
         atualizar_louvores_escala(data_selecionada, louvores_selecionados)
-        st.session_state['louvores_salvos'] = f"Louvores atualizados para {data_selecionada}!"
+        st.session_state['louvores_salvos'] = f"louvores atualizados para {data_selecionada}!"
         st.rerun()
 
 def download_escala_final():
@@ -360,13 +364,26 @@ def download_escala_final():
         st.info("Nenhuma escala salva ainda.")
         return
 
+    # --- Criar lista de meses disponíveis ---
+    meses_disponiveis = sorted({
+        datetime.datetime.strptime(e['Data'], "%d/%m/%Y").strftime("%m/%Y")
+        for e in escalas
+    })
+    mes_escolhido = st.selectbox("📅 Selecione o mês da escala:", meses_disponiveis)
+
+    # --- Filtrar escalas apenas do mês escolhido ---
+    escalas_filtradas = [
+        e for e in escalas
+        if datetime.datetime.strptime(e['Data'], "%d/%m/%Y").strftime("%m/%Y") == mes_escolhido
+    ]
+
     # Ordena as escalas por data (dd/mm/yyyy)
     escalas_ordenadas = sorted(
-        escalas,
+        escalas_filtradas,
         key=lambda e: datetime.datetime.strptime(e['Data'], "%d/%m/%Y")
     )
 
-    st.subheader("🗓️ Escala Completa")
+    st.subheader(f"🗓️ Escala Completa - {mes_escolhido}")
     nomes_unicos = sorted(set(p['Nome'] for esc in escalas_ordenadas for p in esc['Escala']))
     df = pd.DataFrame({"Nome": nomes_unicos})
 
@@ -388,9 +405,9 @@ def download_escala_final():
     with pd.ExcelWriter(towrite, engine='xlsxwriter') as writer:
         df_display.to_excel(writer, index=False, sheet_name='Escala')
     st.download_button(
-        label="📥 Baixar Escala Completa em Excel (.xlsx)",
+        label="📥 Baixar Escala em Excel (.xlsx)",
         data=towrite.getvalue(),
-        file_name="escala_completa.xlsx",
+        file_name=f"escala_{mes_escolhido}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
@@ -398,7 +415,7 @@ def download_escala_final():
     st.download_button(
         label="📥 Baixar Escala em CSV",
         data=df.to_csv(index=False).encode('utf-8'),
-        file_name="escala_completa.csv",
+        file_name=f"escala_{mes_escolhido}.csv",
         mime="text/csv"
     )
 
@@ -409,7 +426,7 @@ def download_escala_final():
     style_normal = ParagraphStyle(name='Normal', fontSize=7, leading=12, wordWrap='CJK')
     elements = []
 
-    elements.append(Paragraph("Escala Completa", styles["Title"]))
+    elements.append(Paragraph(f"Escala Completa - {mes_escolhido}", styles["Title"]))
     elements.append(Paragraph(" ", style_normal))
 
     # Cabeçalho
@@ -446,8 +463,8 @@ def download_escala_final():
     pdf_data = pdf_buffer.getvalue()
 
     st.download_button(
-        label="📥 Baixar Escala Completa em PDF",
+        label="📥 Baixar Escala em PDF",
         data=pdf_data,
-        file_name="escala_completa.pdf",
+        file_name=f"escala_{mes_escolhido}.pdf",
         mime="application/pdf"
     )

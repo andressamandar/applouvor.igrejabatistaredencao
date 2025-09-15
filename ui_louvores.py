@@ -9,7 +9,7 @@ from mongo_manager import (
 )
 
 def interface_integrantes_louvores():
-    st.title("🎶 Louvores por Escala")
+    st.title("🎶 louvores por Escala")
 
     # --- Botão Drive + descrição ---
     st.link_button(
@@ -33,7 +33,7 @@ def interface_integrantes_louvores():
         st.warning("Nenhuma escala salva ainda.")
         return
 
-    st.markdown("### 🎥 Vídeos dos Louvores por Data")
+    st.markdown("### 🎥 Vídeos dos louvores por Data")
 
     # Ordena escalas por data
     escalas_ordenadas = sorted(
@@ -65,7 +65,7 @@ def interface_integrantes_louvores():
                 st.info("Nenhum louvor cadastrado para esta data.")
 
 def interface_integrantes_louvores():
-    st.title("🎶 Louvores por Escala")
+    st.title("🎶 louvores por Escala")
 
     # --- Botão Drive + descrição ---
     st.link_button(
@@ -89,7 +89,7 @@ def interface_integrantes_louvores():
         st.warning("Nenhuma escala salva ainda.")
         return
 
-    st.markdown("### 🎥 Vídeos dos Louvores por Data")
+    st.markdown("### 🎥 Vídeos dos louvores por Data")
 
     # Ordena escalas por data
     escalas_ordenadas = sorted(
@@ -121,7 +121,7 @@ def interface_integrantes_louvores():
                 st.info("Nenhum louvor cadastrado para esta data.")
 
 def interface_integrantes_louvores():
-    st.title("🎶 Louvores por Escala")
+    st.title("🎶 louvores por Escala")
 
     # --- Botão Drive + descrição ---
     st.link_button(
@@ -145,7 +145,7 @@ def interface_integrantes_louvores():
         st.warning("Nenhuma escala salva ainda.")
         return
 
-    st.markdown("### 🎥 Vídeos dos Louvores por Data")
+    st.markdown("### 🎥 Vídeos dos louvores por Data")
 
     # Ordena escalas por data
     escalas_ordenadas = sorted(
@@ -177,7 +177,7 @@ def interface_integrantes_louvores():
                 st.info("Nenhum louvor cadastrado para esta data.")
 
 def interface_admin_louvores():
-    st.subheader("🎵 Gerenciar Louvores")
+    st.subheader("🎵 Gerenciar louvores")
     st.info("Aqui você pode adicionar, atualizar ou remover louvores do banco de dados.")
 
     # Inicializa as chaves do session_state
@@ -247,6 +247,6 @@ def interface_admin_louvores():
     # Exibir tabela atualizada
     louvores = carregar_louvores_lista() or []
     if louvores:
-        st.subheader("Louvores Cadastrados")
+        st.subheader("louvores Cadastrados")
         df_louvores = pd.DataFrame(louvores)
         st.dataframe(df_louvores, use_container_width=True)

@@ -67,7 +67,7 @@ def exibir_minha_escala():
                 "Data": data,
                 "Tipo": tipo,
                 "Funcoes": funcoes_str,
-                "Louvores": louvores_detalhados
+                "louvores": louvores_detalhados
             })
 
     if not escala_pessoal:
@@ -83,9 +83,9 @@ def exibir_minha_escala():
     for item in escala_pessoal:
         with st.expander(f"**🗓️ {item['Data']} - {item['Tipo']}**"):
             st.markdown(f"**Função:** {item['Funcoes']}")
-            if item['Louvores']:
-                st.markdown("**Louvores:**")
-                for l in item['Louvores']:
+            if item['louvores']:
+                st.markdown("**louvores:**")
+                for l in item['louvores']:
                     st.markdown(f"- {l}")
             else:
                 st.warning("Nenhum louvor cadastrado para esta data.")
@@ -95,7 +95,7 @@ def exibir_minha_escala():
         "Data": i["Data"],
         "Tipo": i["Tipo"],
         "Funcoes": i["Funcoes"],
-        "Louvores": ", ".join(i["Louvores"])
+        "louvores": ", ".join(i["louvores"])
     } for i in escala_pessoal])
 
     # --- Download PDF ---
@@ -109,11 +109,11 @@ def exibir_minha_escala():
     elements.append(Paragraph(" ", style_normal))  # espaço
 
     # Cabeçalho da tabela
-    data_pdf = [["Data", "Tipo", "Funções", "Louvores"]]
+    data_pdf = [["Data", "Tipo", "Funções", "louvores"]]
 
     # Linhas da tabela
     for item in escala_pessoal:
-        louvores_formatados = Paragraph("<br/>".join(item["Louvores"]), style_normal) if item["Louvores"] else Paragraph("—", style_normal)
+        louvores_formatados = Paragraph("<br/>".join(item["louvores"]), style_normal) if item["louvores"] else Paragraph("—", style_normal)
         data_pdf.append([item["Data"], item["Tipo"], item["Funcoes"], louvores_formatados])
 
     table = Table(data_pdf, colWidths=[80, 80, 120, 180])
@@ -158,7 +158,6 @@ def exibir_minha_escala():
         mime="text/csv"
     )
 
-
 def exibir_escala_completa_integrantes():
     st.title("📋 Escala Completa")
     
@@ -167,11 +166,24 @@ def exibir_escala_completa_integrantes():
         st.info("Nenhuma escala salva ainda.")
         return
 
-    nomes_unicos = sorted(list({p['Nome'] for esc in escalas for p in esc['Escala']}))
+    # --- Criar lista de meses disponíveis ---
+    meses_disponiveis = sorted({
+        datetime.datetime.strptime(e['Data'], "%d/%m/%Y").strftime("%m/%Y")
+        for e in escalas
+    })
+    mes_escolhido = st.selectbox("📅 Selecione o mês:", meses_disponiveis)
+
+    # --- Filtrar escalas apenas do mês escolhido ---
+    escalas_filtradas = [
+        e for e in escalas
+        if datetime.datetime.strptime(e['Data'], "%d/%m/%Y").strftime("%m/%Y") == mes_escolhido
+    ]
+
+    nomes_unicos = sorted(list({p['Nome'] for esc in escalas_filtradas for p in esc['Escala']}))
 
     # Ordena as escalas por data (dd/mm/yyyy)
     escalas_ordenadas = sorted(
-        escalas,
+        escalas_filtradas,
         key=lambda e: datetime.datetime.strptime(e['Data'], "%d/%m/%Y")
     )
 
@@ -194,9 +206,9 @@ def exibir_escala_completa_integrantes():
     with pd.ExcelWriter(towrite, engine='xlsxwriter') as writer:
         df_display.to_excel(writer, index=False, sheet_name='Escala')
     st.download_button(
-        label="📥 Baixar Escala Completa em Excel (.xlsx)",
+        label="📥 Baixar Escala em Excel (.xlsx)",
         data=towrite.getvalue(),
-        file_name="escala_completa.xlsx",
+        file_name=f"escala_{mes_escolhido}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
@@ -207,7 +219,7 @@ def exibir_escala_completa_integrantes():
     style_normal = ParagraphStyle(name='Normal', fontSize=7, leading=12, wordWrap='CJK')
     elements = []
 
-    elements.append(Paragraph("Escala Completa", styles["Title"]))
+    elements.append(Paragraph(f"Escala Completa - {mes_escolhido}", styles["Title"]))
     elements.append(Paragraph(" ", style_normal))
 
     # Cabeçalho
@@ -246,11 +258,13 @@ def exibir_escala_completa_integrantes():
     pdf_data = pdf_buffer.getvalue()
 
     st.download_button(
-        label="📥 Baixar Escala Completa em PDF",
+        label="📥 Baixar Escala em PDF",
         data=pdf_data,
-        file_name="escala_completa.pdf",
+        file_name=f"escala_{mes_escolhido}.pdf",
         mime="application/pdf"
     )
+
+
 
 
 def interface_integrantes():
