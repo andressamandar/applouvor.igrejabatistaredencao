@@ -178,7 +178,8 @@ def interface_escalar_funcoes():
         st.warning("⚠️ Nenhuma data cadastrada ainda. Adicione datas antes de criar a escala.")
         return
 
-    ordem_desejada = ["Ministração", "Soprano", "Contralto", "Tenor", "Violão", "Teclado", "Bateria", "Cajon", "Baritono", "Guitarra", "Baixo", "Projeção", "Sonoplastia"]
+    ordem_desejada = ["Ministração","Bateria","Violão","Teclado","Sonoplastia","Cajon","Soprano", "Contralto", "Tenor", 
+                        "Baritono", "Guitarra", "Baixo", "Projeção"]
     FUNCOES_ordenadas = [f for f in ordem_desejada if f in FUNCOES]
 
     datas_cadastradas = sorted(datas_df['Data'].unique())
@@ -251,11 +252,11 @@ def interface_escalar_funcoes():
 
         candidatos = [n for n in disponiveis if n in habilitados] if habilitados else list(disponiveis)
 
-        # Construir opções com aviso de já escalado, permitindo dupla escalação apenas para Ministração
+        # Criar opções de selectbox com aviso de "já escalado", exceto Ministração
         opcoes = [""]
         for n in candidatos:
             if funcao != "Ministração" and n in escala_escolhidos.values():
-                opcoes.append(f"{n} (Ministração)")
+                opcoes.append(f"{n} (escalado em Ministração)")
             else:
                 opcoes.append(n)
 
@@ -263,30 +264,34 @@ def interface_escalar_funcoes():
         escolhido_raw = st.selectbox(f"{funcao}:", opcoes, key=key_select)
 
         # Remove aviso
-        escolhido = escolhido_raw.replace("(Ministração)", "") if escolhido_raw else ""
+        escolhido = escolhido_raw.replace("(escalado em Ministração)", "").strip() if escolhido_raw else ""
 
         if escolhido:
-            if funcao != "Ministração":
-                if escolhido in disponiveis:
-                    disponiveis.remove(escolhido)
             escala_escolhidos[funcao] = escolhido
+            # Remove dos disponíveis apenas se não for Ministração
+            if funcao != "Ministração" and escolhido in disponiveis:
+                disponiveis.remove(escolhido)
 
+    # Pré-visualização
     if escala_escolhidos:
         st.subheader("📋 Pré-visualização da Escala do Dia")
         for funcao, nome in escala_escolhidos.items():
             st.write(f"{funcao}: {nome}")
 
+        # Salvar escala
         if st.button("Salvar Escala"):
             escala_temp = []
             for funcao, nome in escala_escolhidos.items():
                 item = next((p for p in escala_temp if p["Nome"] == nome), None)
                 if item:
-                    item["Funcoes"].append(funcao)
+                    if funcao not in item["Funcoes"]:
+                        item["Funcoes"].append(funcao)
                 else:
                     escala_temp.append({"Nome": nome, "Funcoes": [funcao]})
             salvar_escala(data_escolhida, tipo_culto, escala_temp)
             st.success(f"✅ Escala de {data_escolhida} salva com sucesso!")
             trigger_refresh()
+
 
 # ------------------ Editar Escala ------------------
 def interface_editar_escala():
@@ -316,6 +321,7 @@ def interface_editar_escala():
 
     st.subheader("🎯 Editar Escala por Função")
 
+    # Disponíveis
     disponiveis = []
     if not disp_df.empty:
         for r in disp_df.to_dict('records'):
@@ -329,17 +335,18 @@ def interface_editar_escala():
     seen = set(); disponiveis = [x for x in disponiveis if not (x in seen or seen.add(x))]
 
     # Adiciona os integrantes já escalados na lista de disponíveis
-    integrantes_na_escala = [p['Nome'] for p in escala_atual.get('Escala', [])]
-    for nome in integrantes_na_escala:
-        if nome not in disponiveis:
-            disponiveis.append(nome)
+    for p in escala_atual.get('Escala', []):
+        if p['Nome'] not in disponiveis:
+            disponiveis.append(p['Nome'])
 
-    ordem_desejada = ["Ministração", "Soprano", "Contralto", "Tenor","Baritono", "Violão", "Teclado", "Bateria", "Cajon", "Guitarra", "Baixo", "Projeção", "Sonoplastia"]
+    ordem_desejada = ["Ministração", "Soprano", "Contralto", "Tenor","Baritono", "Violão",
+                      "Teclado", "Bateria", "Cajon", "Guitarra", "Baixo", "Projeção", "Sonoplastia"]
     FUNCOES_ordenadas = [f for f in ordem_desejada if f in FUNCOES]
 
     escala_escolhidos = {}
 
     for funcao in FUNCOES_ordenadas:
+        # Integrante já escalado para essa função
         integrante_na_escala = next((p['Nome'] for p in escala_atual['Escala'] if funcao in p['Funcoes']), "")
 
         habilitados = []
@@ -353,11 +360,11 @@ def interface_editar_escala():
         if integrante_na_escala and integrante_na_escala not in candidatos:
             candidatos.append(integrante_na_escala)
 
-        # Adiciona aviso de "já escalado" para funções diferentes de Ministração
+        # Opções de selectbox com aviso de "já escalado", exceto Ministração
         opcoes = [""]
         for n in candidatos:
             if funcao != "Ministração" and n in escala_escolhidos.values():
-                opcoes.append(f"{n} (Ministração)")
+                opcoes.append(f"{n} (escalado em Ministração)")
             else:
                 opcoes.append(n)
 
@@ -372,25 +379,28 @@ def interface_editar_escala():
         escolhido_raw = st.selectbox(f"{funcao}:", opcoes, key=key_select, index=default_index)
 
         # Remove aviso
-        escolhido = escolhido_raw.replace("(Ministração)", "") if escolhido_raw else ""
+        escolhido = escolhido_raw.replace("(escalado em Ministração)", "").strip() if escolhido_raw else ""
 
         if escolhido:
-            if funcao != "Ministração":
-                if escolhido in disponiveis:
-                    disponiveis.remove(escolhido)
             escala_escolhidos[funcao] = escolhido
+            # Remove dos disponíveis apenas se não for Ministração
+            if funcao != "Ministração" and escolhido in disponiveis:
+                disponiveis.remove(escolhido)
 
+    # Pré-visualização
     if escala_escolhidos:
         st.subheader("📋 Pré-visualização da Edição")
         for funcao, nome in escala_escolhidos.items():
             st.write(f"{funcao}: {nome}")
 
+        # Salvar edição
         if st.button("Salvar Edição"):
             escala_temp = []
             for funcao, nome in escala_escolhidos.items():
                 item = next((p for p in escala_temp if p["Nome"] == nome), None)
                 if item:
-                    item["Funcoes"].append(funcao)
+                    if funcao not in item["Funcoes"]:
+                        item["Funcoes"].append(funcao)
                 else:
                     escala_temp.append({"Nome": nome, "Funcoes": [funcao]})
             tipo_culto = datas_df.loc[datas_df['Data'] == data_escolhida, 'Tipo'].values[0]
