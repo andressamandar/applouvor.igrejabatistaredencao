@@ -7,7 +7,6 @@ import streamlit as st
 try:
     mongo_uri = st.secrets["MONGODB_URI"]
     db_name = st.secrets["PORTAL_LOUVOR"]
-    # db_name = st.secrets["PORTAL_LOUVOR_DEV"]
 except Exception as e:
     print("ERRO CRÍTICO: Variáveis MONGODB_URI ou PORTAL_LOUVOR não encontradas em st.secrets", file=sys.stderr)
     sys.exit(1)
