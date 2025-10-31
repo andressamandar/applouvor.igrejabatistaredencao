@@ -178,7 +178,7 @@ def interface_escalar_funcoes():
         st.warning("⚠️ Nenhuma data cadastrada ainda. Adicione datas antes de criar a escala.")
         return
 
-    ordem_desejada = ["Ministração","Bateria","Violão","Teclado","Sonoplastia","Cajon","Soprano", "Contralto", "Tenor", 
+    ordem_desejada = ["Ministração","Sonoplastia","Bateria","Violão","Teclado","Cajon","Soprano", "Contralto", "Tenor", 
                         "Baritono", "Guitarra", "Baixo", "Projeção"]
     FUNCOES_ordenadas = [f for f in ordem_desejada if f in FUNCOES]
 
@@ -339,8 +339,8 @@ def interface_editar_escala():
         if p['Nome'] not in disponiveis:
             disponiveis.append(p['Nome'])
 
-    ordem_desejada = ["Ministração", "Soprano", "Contralto", "Tenor","Baritono", "Violão",
-                      "Teclado", "Bateria", "Cajon", "Guitarra", "Baixo", "Projeção", "Sonoplastia"]
+    ordem_desejada = ["Ministração","Sonoplastia","Bateria","Violão","Teclado","Cajon","Soprano", "Contralto", "Tenor", 
+                        "Baritono", "Guitarra", "Baixo", "Projeção"]
     FUNCOES_ordenadas = [f for f in ordem_desejada if f in FUNCOES]
 
     escala_escolhidos = {}
