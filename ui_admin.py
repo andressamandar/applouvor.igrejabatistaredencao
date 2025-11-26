@@ -2,7 +2,7 @@ import datetime
 import io
 from mongo_manager import (
     carregar_louvores_lista, carregar_datas, salvar_data, excluir_data,
-    carregar_disponibilidade, carregar_funcoes, salvar_escala, carregar_escala, atualizar_louvores_escala
+    carregar_disponibilidade,carregar_integrantes, carregar_funcoes, salvar_escala, carregar_escala, atualizar_louvores_escala
 )
 from session_manager import login_admin
 import streamlit as st
@@ -108,8 +108,15 @@ def interface_admin():
         return
 
     sub_menu = st.selectbox("Escolha uma opção de administração:", [
-        "Gerenciar datas", "Criar escala", "Editar escala", "Escolher louvores","Gerenciar louvores","Escala e Download"
+        "Gerenciar datas",
+        "Criar escala",
+        "Editar escala",
+        "Escolher louvores",
+        "Gerenciar louvores",
+        "Escala e Download",
+        "Visualizar disponibilidades"   
     ])
+
 
     # Carregar dados uma vez (com loader)
     if 'datas_df' not in st.session_state:
@@ -136,6 +143,9 @@ def interface_admin():
         interface_escolher_louvores()
     elif sub_menu =="Escala e Download":
         download_escala_final()
+    elif sub_menu == "Visualizar disponibilidades":
+        interface_visualizar_disponibilidades()
+
 
 # ------------------ Gerenciar Datas ------------------
 def gerenciar_datas():
@@ -446,7 +456,139 @@ def interface_escolher_louvores():
         st.success(f"Louvores atualizados para {data_selecionada}!")
         st.rerun()
 
+
+
 # ------------------ Escala Completa + Download ------------------
+
+# ===================== NOVA ABA — Visualizar Disponibilidades =====================
+def interface_visualizar_disponibilidades():
+    st.title("📊 Visualizar Disponibilidades")
+
+    # Carregar dados
+    datas = carregar_datas()
+    disp = carregar_disponibilidade()
+    integrantes = carregar_integrantes()
+
+    if not datas:
+        st.warning("Nenhuma data cadastrada.")
+        return
+
+    # Converter datas para objetos datetime
+    datas_dt = [
+        datetime.datetime.strptime(d["Data"], "%d/%m/%Y")
+        for d in datas
+    ]
+
+    # Descobrir o mês mais recente disponível
+    ultima_data = max(datas_dt)
+    ultimo_mes = ultima_data.strftime("%m/%Y")
+
+    st.info(f"📅 Exibindo disponibilidades para o mês mais recente: **{ultimo_mes}**")
+
+    # Filtrar datas do último mês
+    datas_mes = [
+        d["Data"] for d in datas
+        if datetime.datetime.strptime(d["Data"], "%d/%m/%Y").strftime("%m/%Y") == ultimo_mes
+    ]
+
+    datas_mes = sorted(
+        datas_mes,
+        key=lambda x: datetime.datetime.strptime(x, "%d/%m/%Y")
+    )
+
+    # Lista de integrantes
+    lista_integrantes = sorted([
+        item.get("Nome") or item.get("nome")
+        for item in integrantes
+        if item.get("Nome") or item.get("nome")
+    ])
+
+    if not lista_integrantes:
+        st.warning("Nenhum integrante cadastrado.")
+        return
+
+    # Construir tabela
+    matriz = []
+    disponibilidade_por_integrante = {}
+
+    for nome in lista_integrantes:
+        linha = {"Nome": nome}
+        disponibilidade_por_integrante[nome] = []
+
+        for data in datas_mes:
+            reg = next((x for x in disp if x["Nome"] == nome and x["Data"] == data), None)
+
+            if reg is None:
+                linha[data] = "⚪ —"
+            else:
+                if reg["Disponivel"]:
+                    linha[data] = "🟢 Sim"
+                    disponibilidade_por_integrante[nome].append(data)
+                else:
+                    linha[data] = "🔴 Não"
+
+        matriz.append(linha)
+
+    df_disp = pd.DataFrame(matriz)
+
+    # ---- Tabela ----
+    st.subheader(f"📅 Tabela de Disponibilidades — {ultimo_mes}")
+    st.dataframe(df_disp, use_container_width=True)
+
+    # =================== PAINEL — Integrantes com 1 data ===================
+    st.markdown("---")
+    st.subheader("⚠️ Integrantes disponíveis somente em uma data")
+
+    lista_limitados = [
+        (nome, disp_list[0])
+        for nome, disp_list in disponibilidade_por_integrante.items()
+        if len(disp_list) == 1
+    ]
+
+    if lista_limitados:
+        for nome, unica_data in lista_limitados:
+            st.write(f"• **{nome}** — disponível apenas em **{unica_data}**")
+    else:
+        st.info("Nenhum integrante com disponibilidade limitada neste mês.")
+
+    # =================== PDF ===================
+    st.markdown("---")
+    st.subheader("📥 Exportar tabela em PDF")
+
+    pdf_buffer = io.BytesIO()
+    doc = SimpleDocTemplate(pdf_buffer, pagesize=landscape(A4))
+    styles = getSampleStyleSheet()
+
+    colunas = df_disp.columns.tolist()
+    data_pdf = [colunas]
+
+    for _, row in df_disp.iterrows():
+        data_pdf.append([row[col] for col in colunas])
+
+    tabela = Table(data_pdf, colWidths=[80] + [70 for _ in range(len(colunas)-1)])
+    tabela.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,0), colors.lightblue),
+        ("TEXTCOLOR", (0,0), (-1,0), colors.black),
+        ("ALIGN", (0,0), (-1,-1), "CENTER"),
+        ("GRID", (0,0), (-1,-1), 0.5, colors.grey),
+        ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
+        ("FONTSIZE", (0,0), (-1,-1), 8),
+    ]))
+
+    elems = [
+        Paragraph(f"Disponibilidades — {ultimo_mes}", styles["Title"]),
+        tabela
+    ]
+    doc.build(elems)
+    pdf_data = pdf_buffer.getvalue()
+
+    st.download_button(
+        label="📄 Baixar PDF",
+        data=pdf_data,
+        file_name=f"disponibilidades_{ultimo_mes}.pdf",
+        mime="application/pdf"
+    )
+
 def download_escala_final():
     escalas = load_with_spinner(carregar_escala, label="Carregando escalas...")
     if not escalas:
@@ -544,3 +686,4 @@ def download_escala_final():
         file_name=f"escala_{mes_escolhido}.pdf",
         mime="application/pdf"
     )
+ 
