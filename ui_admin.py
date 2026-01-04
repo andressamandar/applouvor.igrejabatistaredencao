@@ -95,6 +95,7 @@ def disponibilidade_is_true(val):
 
 # ------------------ Interface ------------------
 def interface_admin():
+    
     if not st.session_state.get('admin_logado', False):
         senha = st.text_input("Senha do Admin:", type="password")
         if st.button("Login"):
@@ -145,6 +146,10 @@ def interface_admin():
         download_escala_final()
     elif sub_menu == "Visualizar disponibilidades":
         interface_visualizar_disponibilidades()
+        
+    if "success_msg_admin" in st.session_state and st.session_state.success_msg_admin:
+        st.success(st.session_state.success_msg_admin)
+        st.session_state.success_msg_admin = ""
 
 
 # ------------------ Gerenciar Datas ------------------
@@ -298,9 +303,11 @@ def interface_escalar_funcoes():
                         item["Funcoes"].append(funcao)
                 else:
                     escala_temp.append({"Nome": nome, "Funcoes": [funcao]})
+
             salvar_escala(data_escolhida, tipo_culto, escala_temp)
-            st.success(f"✅ Escala de {data_escolhida} salva com sucesso!")
-            trigger_refresh()
+            
+            st.session_state.success_msg_admin = f"✅ Escala de {data_escolhida} salva com sucesso!"
+            st.rerun()
 
 
 # ------------------ Editar Escala ------------------
@@ -413,9 +420,11 @@ def interface_editar_escala():
                         item["Funcoes"].append(funcao)
                 else:
                     escala_temp.append({"Nome": nome, "Funcoes": [funcao]})
+
             tipo_culto = datas_df.loc[datas_df['Data'] == data_escolhida, 'Tipo'].values[0]
             salvar_escala(data_escolhida, tipo_culto, escala_temp)
-            st.success(f"✅ Escala de {data_escolhida} atualizada!")
+
+            st.session_state.success_msg_admin = f"✅ Escala de {data_escolhida} atualizada com sucesso!"
             st.rerun()
 
 
@@ -453,7 +462,8 @@ def interface_escolher_louvores():
 
     if st.button("Salvar louvores"):
         atualizar_louvores_escala(data_selecionada, louvores_selecionados)
-        st.success(f"Louvores atualizados para {data_selecionada}!")
+
+        st.session_state.success_msg_admin = f"🎶 Louvores de {data_selecionada} salvos com sucesso!"
         st.rerun()
 
 

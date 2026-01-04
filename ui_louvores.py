@@ -97,25 +97,27 @@ def _is_future_or_today(date_str):
 
 # ------------------------- PARTES DO ADMIN (CRUD de louvores) -------------------------
 def interface_admin_louvores():
+    if "sucesso_msg" in st.session_state and st.session_state.sucesso_msg:
+        st.success(st.session_state.sucesso_msg)
+        st.session_state.sucesso_msg = ""
+    
     st.subheader("🎵 Gerenciar louvores")
     st.info("Aqui você pode adicionar, atualizar ou remover louvores do banco de dados.")
 
-    if 'louvor_selecionado' not in st.session_state:
-        st.session_state.louvor_selecionado = ""
     if 'sucesso_msg' not in st.session_state:
         st.session_state.sucesso_msg = ""
-    
+
     louvores = load_with_spinner(carregar_louvores_lista, label="Carregando louvores...")
     louvor_selecionado = st.selectbox(
         "Selecione um louvor para editar/excluir ou deixe em branco para adicionar novo:",
         options=[""] + [l['louvor'] for l in louvores],
         index=0
     )
-    
+
     if st.session_state.sucesso_msg:
         st.success(st.session_state.sucesso_msg)
         st.session_state.sucesso_msg = ""
-    
+
     louvor_nome = ""
     link_youtube = ""
     tom_louvor = ""
@@ -125,41 +127,37 @@ def interface_admin_louvores():
         louvor_nome = l.get("louvor", "")
         link_youtube = l.get("link", "")
         tom_louvor = l.get("tom", "")
-    
+
     louvor_nome_input = st.text_input("Nome do Louvor:", value=louvor_nome)
     link_youtube_input = st.text_input("Link do YouTube:", value=link_youtube)
     tom_louvor_input = st.text_input("Qual o tom?:", value=tom_louvor)
 
     if louvor_selecionado:
         col1, col2 = st.columns(2)
+
         with col1:
             if st.button("💾 Atualizar Louvor"):
-                if louvor_nome_input.strip():
-                    atualizar_louvor_bd(
-                        nome_antigo=louvor_selecionado,
-                        novo_nome=louvor_nome_input.strip(),
-                        link=link_youtube_input.strip(),
-                        tom=tom_louvor_input.strip()
-                    )
-                    st.session_state.sucesso_msg = f"Louvor '{louvor_nome_input}' atualizado com sucesso!"
-                    st.rerun()
+                atualizar_louvor_bd(
+                    nome_antigo=louvor_selecionado,
+                    novo_nome=louvor_nome_input.strip(),
+                    link=link_youtube_input.strip(),
+                    tom=tom_louvor_input.strip()
+                )
+                st.session_state.sucesso_msg = f"✅ Louvor '{louvor_nome_input}' atualizado com sucesso!"
+                st.rerun()
 
         with col2:
             if st.button("🗑️ Excluir Louvor"):
                 excluir_louvor(louvor_selecionado)
-                st.session_state.sucesso_msg = f"Louvor '{louvor_selecionado}' excluído com sucesso."
+                st.session_state.sucesso_msg = f"🗑️ Louvor '{louvor_selecionado}' excluído com sucesso!"
                 st.rerun()
 
     else:
         if st.button("💾 Adicionar Louvor"):
-            if louvor_nome_input.strip():
-                salvar_louvor_bd(louvor_nome_input.strip(), link_youtube_input.strip(), tom_louvor_input.strip())
-                st.session_state.sucesso_msg = f"Louvor '{louvor_nome_input}' adicionado com sucesso!"
-                st.rerun()
-    
-    louvores = load_with_spinner(carregar_louvores_lista, label="Atualizando lista de louvores...")
-    if louvores:
-        st.subheader("louvores Cadastrados")
-        df_louvores = pd.DataFrame(louvores)
-        st.dataframe(df_louvores, use_container_width=True)
-
+            salvar_louvor_bd(
+                louvor_nome_input.strip(),
+                link_youtube_input.strip(),
+                tom_louvor_input.strip()
+            )
+            st.session_state.sucesso_msg = f"🎵 Louvor '{louvor_nome_input}' adicionado com sucesso!"
+            st.rerun()
