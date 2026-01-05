@@ -37,6 +37,14 @@ def show_round_svg_loader(text="Carregando..."):
     </div>
     """
     st.markdown(svg, unsafe_allow_html=True)
+    
+def normalizar_nomes(nomes):
+    if isinstance(nomes, list):
+        return nomes
+    if isinstance(nomes, str):
+        return [nomes]
+    return []
+
 
 def load_with_spinner(fn, *args, label="Carregando informações...", **kwargs):
     placeholder = st.empty()
@@ -255,8 +263,7 @@ def interface_escalar_funcoes():
         st.warning("Ninguém se disponibilizou para esta data ainda.")
         return
 
-    escala_escolhidos = {}
-
+    escala_escolhidos = {f: [] for f in FUNCOES_ordenadas}
     for funcao in FUNCOES_ordenadas:
         habilitados = []
         if not df_funcoes.empty and funcao in df_funcoes.columns:
@@ -275,17 +282,27 @@ def interface_escalar_funcoes():
             else:
                 opcoes.append(n)
 
-        key_select = f"{funcao}_{data_escolhida}"
-        escolhido_raw = st.selectbox(f"{funcao}:", opcoes, key=key_select)
+        # pessoas já escaladas em outras funções
+        avisos = {}
+        for f, nomes in escala_escolhidos.items():
+            for n in nomes:
+                avisos.setdefault(n, []).append(f)
 
-        # Remove aviso
-        escolhido = escolhido_raw.replace("(escalado em Ministração)", "").strip() if escolhido_raw else ""
+        opcoes = candidatos
 
-        if escolhido:
-            escala_escolhidos[funcao] = escolhido
-            # Remove dos disponíveis apenas se não for Ministração
-            if funcao != "Ministração" and escolhido in disponiveis:
-                disponiveis.remove(escolhido)
+        selecionados = st.multiselect(
+            f"{funcao}:",
+            options=opcoes,
+            key=f"{funcao}_{data_escolhida}"
+        )
+
+        for nome in selecionados:
+            if nome in avisos:
+                funcoes_previas = ", ".join(avisos[nome])
+                st.caption(f"⚠️ {nome} já escalado também em: {funcoes_previas}")
+
+        escala_escolhidos[funcao] = selecionados
+
 
     # Pré-visualização
     if escala_escolhidos:
@@ -311,6 +328,8 @@ def interface_escalar_funcoes():
 
 
 # ------------------ Editar Escala ------------------
+# ------------------ Editar Escala ------------------
+# ------------------ Editar Escala ------------------
 def interface_editar_escala():
     disp_df = st.session_state.get('disp_df', pd.DataFrame())
     df_funcoes = st.session_state.get('df_funcoes', pd.DataFrame())
@@ -324,124 +343,129 @@ def interface_editar_escala():
         st.warning("⚠️ Nenhuma escala foi criada ainda.")
         return
 
+    # ---------------- FILTRO DE DATAS FUTURAS ----------------
     hoje = datetime.date.today()
-    datas_escaladas = sorted([esc['Data'] for esc in escalas_existentes if parse_date_str(esc['Data']) and parse_date_str(esc['Data']) >= hoje])
+    datas_escaladas = sorted(
+        [esc['Data'] for esc in escalas_existentes if parse_date_str(esc['Data']) and parse_date_str(esc['Data']) >= hoje]
+    )
+
     if not datas_escaladas:
-        st.info("Não há escalas futuras para editar.")
+        st.info("Não há datas futuras para editar a escala.")
         return
 
     data_escolhida = st.selectbox("Escolha a data para editar a escala:", datas_escaladas)
     escala_atual = next((e for e in escalas_existentes if e['Data'] == data_escolhida), None)
+
     if not escala_atual:
-        st.warning("Escala não encontrada para esta data.")
+        st.warning("Escala não encontrada.")
         return
 
     st.subheader("🎯 Editar Escala por Função")
 
-    # Disponíveis
+    # ---------------- MAPA DA ESCALA ATUAL ----------------
+    escala_por_funcao = {}
+    for p in escala_atual.get("Escala", []):
+        nomes = normalizar_nomes(p.get("Nome"))
+        for funcao in p.get("Funcoes", []):
+            escala_por_funcao.setdefault(funcao, [])
+            escala_por_funcao[funcao].extend(nomes)
+
+    # ---------------- DISPONÍVEIS ----------------
     disponiveis = []
     if not disp_df.empty:
-        for r in disp_df.to_dict('records'):
-            data_r = r.get('Data') or r.get('data')
-            if data_r != data_escolhida:
+        for r in disp_df.to_dict("records"):
+            if r.get("Data") != data_escolhida:
                 continue
-            nome_r = r.get('Nome') or r.get('nome') or r.get('NomeCompleto')
-            dispo_raw = r.get('Disponivel') if 'Disponivel' in r else r.get('disponivel') if 'disponivel' in r else r.get('Disponibilidade')
-            if nome_r and disponibilidade_is_true(dispo_raw):
-                disponiveis.append(nome_r)
-    seen = set(); disponiveis = [x for x in disponiveis if not (x in seen or seen.add(x))]
+            nome = r.get("Nome") or r.get("nome")
+            dispo = r.get("Disponivel") if "Disponivel" in r else r.get("disponivel")
+            if nome and disponibilidade_is_true(dispo):
+                disponiveis.append(nome)
 
-    # Adiciona os integrantes já escalados na lista de disponíveis
-    for p in escala_atual.get('Escala', []):
-        if p['Nome'] not in disponiveis:
-            disponiveis.append(p['Nome'])
+    # garantir que quem já estava escalado apareça
+    for nomes in escala_por_funcao.values():
+        for n in nomes:
+            if n not in disponiveis:
+                disponiveis.append(n)
 
-    ordem_desejada = ["Ministração","Sonoplastia","Bateria","Violão","Teclado","Cajon","Soprano", "Contralto", "Tenor", 
-                        "Baritono", "Guitarra", "Baixo", "Projeção"]
+    disponiveis = sorted(set(disponiveis))
+
+    ordem_desejada = [
+        "Ministração","Sonoplastia","Bateria","Violão","Teclado","Cajon",
+        "Soprano","Contralto","Tenor","Baritono","Guitarra","Baixo","Projeção"
+    ]
     FUNCOES_ordenadas = [f for f in ordem_desejada if f in FUNCOES]
 
     escala_escolhidos = {}
 
+    # ---------------- MULTISELECT COM DEFAULT ----------------
     for funcao in FUNCOES_ordenadas:
-        # Integrante já escalado para essa função
-        integrante_na_escala = next((p['Nome'] for p in escala_atual['Escala'] if funcao in p['Funcoes']), "")
-
         habilitados = []
         if not df_funcoes.empty and funcao in df_funcoes.columns:
-            try:
-                habilitados = df_funcoes[df_funcoes[funcao] == "ok"]['Nome'].tolist()
-            except Exception:
-                habilitados = [r.get('Nome') or r.get('nome') for r in df_funcoes.to_dict('records') if r.get(funcao) == "ok"]
+            habilitados = df_funcoes[df_funcoes[funcao] == "ok"]["Nome"].tolist()
 
-        candidatos = [n for n in disponiveis if n in habilitados] if habilitados else list(disponiveis)
-        if integrante_na_escala and integrante_na_escala not in candidatos:
-            candidatos.append(integrante_na_escala)
+        candidatos = [n for n in disponiveis if n in habilitados] if habilitados else disponiveis
 
-        # Opções de selectbox com aviso de "já escalado", exceto Ministração
-        opcoes = [""]
-        for n in candidatos:
-            if funcao != "Ministração" and n in escala_escolhidos.values():
-                opcoes.append(f"{n} (escalado em Ministração)")
-            else:
-                opcoes.append(n)
+        # Multiselect com default dos nomes já escalados
+        selecionados = st.multiselect(
+            f"{funcao}:",
+            options=candidatos,
+            default=escala_por_funcao.get(funcao, []),
+            key=f"edit_{funcao}_{data_escolhida}"
+        )
 
-        default_index = 0
-        if integrante_na_escala:
-            escolha_default = integrante_na_escala
-            if escolha_default not in opcoes:
-                escolha_default = ""
-            default_index = opcoes.index(escolha_default)
+        escala_escolhidos[funcao] = selecionados
 
-        key_select = f"editar_{funcao}_{data_escolhida}"
-        escolhido_raw = st.selectbox(f"{funcao}:", opcoes, key=key_select, index=default_index)
+    # ---------------- PRÉ-VISUALIZAÇÃO ----------------
+    st.subheader("📋 Pré-visualização da Edição")
+    for funcao, nomes in escala_escolhidos.items():
+        st.write(f"{funcao}: {', '.join(nomes) if nomes else '—'}")
 
-        # Remove aviso
-        escolhido = escolhido_raw.replace("(escalado em Ministração)", "").strip() if escolhido_raw else ""
+    # ---------------- SALVAR ----------------
+    if st.button("Salvar Edição"):
+        escala_final = []
 
-        if escolhido:
-            escala_escolhidos[funcao] = escolhido
-            # Remove dos disponíveis apenas se não for Ministração
-            if funcao != "Ministração" and escolhido in disponiveis:
-                disponiveis.remove(escolhido)
-
-    # Pré-visualização
-    if escala_escolhidos:
-        st.subheader("📋 Pré-visualização da Edição")
-        for funcao, nome in escala_escolhidos.items():
-            st.write(f"{funcao}: {nome}")
-
-        # Salvar edição
-        if st.button("Salvar Edição"):
-            escala_temp = []
-            for funcao, nome in escala_escolhidos.items():
-                item = next((p for p in escala_temp if p["Nome"] == nome), None)
+        for funcao, nomes in escala_escolhidos.items():
+            for nome in nomes:
+                # Verifica se já existe esse integrante na escala_final
+                item = next((x for x in escala_final if x["Nome"] == nome), None)
                 if item:
                     if funcao not in item["Funcoes"]:
                         item["Funcoes"].append(funcao)
                 else:
-                    escala_temp.append({"Nome": nome, "Funcoes": [funcao]})
+                    escala_final.append({"Nome": nome, "Funcoes": [funcao]})
 
-            tipo_culto = datas_df.loc[datas_df['Data'] == data_escolhida, 'Tipo'].values[0]
-            salvar_escala(data_escolhida, tipo_culto, escala_temp)
+        tipo_culto = datas_df.loc[
+            datas_df["Data"] == data_escolhida, "Tipo"
+        ].values[0]
 
-            st.session_state.success_msg_admin = f"✅ Escala de {data_escolhida} atualizada com sucesso!"
-            st.rerun()
+        salvar_escala(data_escolhida, tipo_culto, escala_final)
+
+        st.session_state.success_msg_admin = (
+            f"✅ Escala de {data_escolhida} atualizada com sucesso!"
+        )
+        st.rerun()
 
 
 # ------------------ Escolher Louvores ------------------
 def interface_escolher_louvores():
     st.subheader("🎶 Escolher louvores por Data")
+    
+    # Carregar escalas do banco
     escalas = load_with_spinner(carregar_escala, label="Carregando escalas...")
     if not escalas:
         st.warning("Nenhuma escala criada ainda.")
         return
 
     hoje = datetime.date.today()
-    datas_disponiveis = sorted([e['Data'] for e in escalas if parse_date_str(e['Data']) and parse_date_str(e['Data']) >= hoje])
+    datas_disponiveis = sorted([
+        e['Data'] for e in escalas
+        if parse_date_str(e['Data']) and parse_date_str(e['Data']) >= hoje
+    ])
     if not datas_disponiveis:
         st.info("Não há datas futuras para escolher louvores.")
         return
 
+    # Seleção da data
     data_selecionada = st.selectbox("Escolha a data:", datas_disponiveis)
     escala = next((e for e in escalas if e['Data'] == data_selecionada), None)
     if not escala:
@@ -449,26 +473,38 @@ def interface_escolher_louvores():
         return
 
     st.subheader("📋 Escala desta data")
-    escala_df = pd.DataFrame([
-        {"Nome": p['Nome'], "Funcoes": ", ".join([FUNCAO_EMOJI_MAP.get(f, f) for f in p['Funcoes']])}
-        for p in escala['Escala']
-    ])
-    st.table(escala_df)
 
+    # --- Pré-visualização da escala ---
+    registros = []
+    for p in escala.get('Escala', []):
+        nomes = normalizar_nomes(p.get("Nome"))
+        funcoes = p.get("Funcoes", [])
+        if nomes:  # só adiciona se tiver pelo menos um integrante
+            registros.append({
+                "Nome": ", ".join(nomes),
+                "Funcoes": ", ".join([FUNCAO_EMOJI_MAP.get(f.strip(), f.strip()) for f in funcoes])
+            })
+
+    if registros:
+        escala_df = pd.DataFrame(registros)
+        st.table(escala_df)
+    else:
+        st.info("Nenhum integrante escalado para esta data.")
+
+    # --- Louvores ---
     louvores_cadastrados = load_with_spinner(carregar_louvores_lista, label="Carregando louvores...")
     lista_louvores = [l['louvor'] for l in louvores_cadastrados] if louvores_cadastrados else []
 
-    louvores_selecionados = st.multiselect("Selecione os louvores:", options=lista_louvores, default=escala.get('louvores', []))
+    louvores_selecionados = st.multiselect(
+        "Selecione os louvores:",
+        options=lista_louvores,
+        default=escala.get('louvores', [])
+    )
 
     if st.button("Salvar louvores"):
         atualizar_louvores_escala(data_selecionada, louvores_selecionados)
-
         st.session_state.success_msg_admin = f"🎶 Louvores de {data_selecionada} salvos com sucesso!"
         st.rerun()
-
-
-
-# ------------------ Escala Completa + Download ------------------
 
 # ===================== NOVA ABA — Visualizar Disponibilidades =====================
 def interface_visualizar_disponibilidades():
@@ -599,101 +635,114 @@ def interface_visualizar_disponibilidades():
         mime="application/pdf"
     )
 
+
 def download_escala_final():
     escalas = load_with_spinner(carregar_escala, label="Carregando escalas...")
     if not escalas:
         st.info("Nenhuma escala salva ainda.")
         return
 
-    meses_disponiveis = sorted({datetime.datetime.strptime(e['Data'], "%d/%m/%Y").strftime("%m/%Y") for e in escalas})
+    # normalizar datas
+    for esc in escalas:
+        esc['Data_obj'] = parse_date_str(esc['Data'])
+
+    # meses disponíveis (string mm/YYYY)
+    meses_disponiveis = sorted({esc['Data_obj'].strftime("%m/%Y") for esc in escalas if esc['Data_obj']})
+
+    if not meses_disponiveis:
+        st.info("Nenhuma escala com data válida.")
+        return
+
     mes_atual = datetime.datetime.today().strftime("%m/%Y")
     index_padrao = meses_disponiveis.index(mes_atual) if mes_atual in meses_disponiveis else 0
-    mes_escolhido = st.selectbox("📅 Selecione o mês:", meses_disponiveis, index=index_padrao)
 
-    escalas_filtradas = [e for e in escalas if datetime.datetime.strptime(e['Data'], "%d/%m/%Y").strftime("%m/%Y") == mes_escolhido]
-    escalas_ordenadas = sorted(escalas_filtradas, key=lambda e: datetime.datetime.strptime(e['Data'], "%d/%m/%Y"))
+    mes_escolhido = st.selectbox(
+        "📅 Selecione o mês:",
+        meses_disponiveis,
+        index=index_padrao
+    )
+
+    # filtrar escalas do mês escolhido
+    escalas_filtradas = [
+        e for e in escalas
+        if e['Data_obj'] and e['Data_obj'].strftime("%m/%Y") == mes_escolhido
+    ]
+
+    escalas_ordenadas = sorted(escalas_filtradas, key=lambda e: e['Data_obj'])
+
+    if not escalas_ordenadas:
+        st.info(f"Nenhuma escala encontrada para {mes_escolhido}")
+        return
 
     st.subheader(f"🗓️ Escala Completa - {mes_escolhido}")
-    nomes_unicos = sorted(set(p['Nome'] for esc in escalas_ordenadas for p in esc['Escala']))
-    df = pd.DataFrame({"Nome": nomes_unicos})
+
+    # nomes únicos
+    nomes_unicos = sorted({
+        p["Nome"] if isinstance(p.get("Nome"), str) else p.get("Nome")[0]
+        for esc in escalas_ordenadas
+        for p in esc.get("Escala", [])
+        if p.get("Nome")
+    })
+
+    df_export = pd.DataFrame({"Nome": nomes_unicos})
+    df_display = pd.DataFrame({"Nome": nomes_unicos})  # para visualização com emojis
+
     for esc in escalas_ordenadas:
         col = f"{esc['Data']} - {esc['Tipo']}"
-        temp = {p['Nome']: ", ".join(p['Funcoes']) for p in esc['Escala']}
-        df[col] = df['Nome'].map(temp).fillna("")
+        temp = {}
+        for p in esc.get("Escala", []):
+            nomes = normalizar_nomes(p.get("Nome"))
+            temp.update({n: p.get("Funcoes", []) for n in nomes})
 
-    df_display = df.copy()
-    for col in df_display.columns[1:]:
-        df_display[col] = df_display[col].apply(
-            lambda x: ", ".join([
-                FUNCAO_EMOJI_MAP.get(f.strip(), f.strip())
-                for f in x.split(',') if f.strip()
-            ]) if x else ""
+        # versão para export (sem emojis)
+        df_export[col] = df_export["Nome"].map(lambda n: ", ".join(temp.get(n, [])))
+
+        # versão para display (com emojis)
+        df_display[col] = df_display["Nome"].map(
+            lambda n: ", ".join(FUNCAO_EMOJI_MAP.get(f.strip(), f.strip()) for f in temp.get(n, []))
         )
+
+    # mostrar apenas a versão com emojis
     st.dataframe(df_display, use_container_width=True)
 
-    # --- Download Excel ---
-    towrite = io.BytesIO()
-    with pd.ExcelWriter(towrite, engine='xlsxwriter') as writer:
-        df_display.to_excel(writer, index=False, sheet_name='Escala')
+    # --- GERAR EXCEL ---
+    excel_buffer = io.BytesIO()
+    with pd.ExcelWriter(excel_buffer, engine="xlsxwriter") as writer:
+        df_export.to_excel(writer, index=False, sheet_name="Escala")
     st.download_button(
-        label="📥 Baixar Escala em Excel (.xlsx)",
-        data=towrite.getvalue(),
+        label="📥 Baixar Excel",
+        data=excel_buffer.getvalue(),
         file_name=f"escala_{mes_escolhido}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
-    # --- Download CSV ---
-    st.download_button(
-        label="📥 Baixar Escala em CSV",
-        data=df.to_csv(index=False).encode('utf-8'),
-        file_name=f"escala_{mes_escolhido}.csv",
-        mime="text/csv"
-    )
-
-    # --- Download PDF ---
+    # --- GERAR PDF ---
     pdf_buffer = io.BytesIO()
     doc = SimpleDocTemplate(pdf_buffer, pagesize=landscape(A4))
     styles = getSampleStyleSheet()
-    style_normal = ParagraphStyle(name='Normal', fontSize=7, leading=12, wordWrap='CJK')
-    elements = []
 
-    elements.append(Paragraph(f"Escala Completa - {mes_escolhido}", styles["Title"]))
-    elements.append(Paragraph(" ", style_normal))
+    colunas = df_export.columns.tolist()
+    data_pdf = [colunas]
 
-    colunas = df.columns.tolist()
-    data_table = [colunas]
+    for _, row in df_export.iterrows():
+        data_pdf.append([row[col] for col in colunas])
 
-    for _, row in df.iterrows():
-        linha = []
-        for col in colunas:
-            valor = row[col]
-            if col != "Nome":
-                valor = Paragraph(valor.replace(", ", "<br/>"), style_normal)
-            linha.append(valor)
-        data_table.append(linha)
-
-    col_widths = [70] + [90 for _ in range(len(colunas)-1)]
-
-    table = LongTable(data_table, colWidths=col_widths, repeatRows=1)
-    table.setStyle(TableStyle([
+    tabela = Table(data_pdf, colWidths=[100] + [80 for _ in range(len(colunas)-1)])
+    tabela.setStyle(TableStyle([
         ("BACKGROUND", (0,0), (-1,0), colors.lightblue),
         ("TEXTCOLOR", (0,0), (-1,0), colors.black),
         ("ALIGN", (0,0), (-1,-1), "CENTER"),
-        ("VALIGN", (0,0), (-1,-1), "TOP"),
-        ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
-        ("FONTSIZE", (0,0), (-1,-1), 9),
-        ("BOTTOMPADDING", (0,0), (-1,0), 6),
         ("GRID", (0,0), (-1,-1), 0.5, colors.grey),
+        ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
+        ("FONTSIZE", (0,0), (-1,-1), 8),
     ]))
 
-    elements.append(table)
-    doc.build(elements)
-    pdf_data = pdf_buffer.getvalue()
+    elems = [Paragraph(f"Escala de Louvor — {mes_escolhido}", styles["Title"]), tabela]
+    doc.build(elems)
 
     st.download_button(
-        label="📥 Baixar Escala em PDF",
-        data=pdf_data,
+        label="📄 Baixar PDF",
+        data=pdf_buffer.getvalue(),
         file_name=f"escala_{mes_escolhido}.pdf",
         mime="application/pdf"
     )
- 

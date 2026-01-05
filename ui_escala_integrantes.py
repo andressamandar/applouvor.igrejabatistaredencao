@@ -46,6 +46,15 @@ def parse_date_str(data_str):
         return datetime.datetime.strptime(data_str, "%d/%m/%Y").date()
     except Exception:
         return None
+    
+    
+def normalizar_nomes(nomes):
+    if isinstance(nomes, list):
+        return nomes
+    if isinstance(nomes, str):
+        return [nomes]
+    return []
+
 
 def exibir_minha_escala():
     st.title("📅 Minha Escala")
@@ -59,7 +68,15 @@ def exibir_minha_escala():
         st.info("Nenhuma escala salva ainda.")
         return
 
-    nomes_unicos = sorted({m.get('Nome') for e in escalas for m in e.get('Escala', [])})
+    nomes_unicos = sorted(
+        set(
+            nome
+            for esc in escalas
+            for p in esc.get("Escala", [])
+            for nome in normalizar_nomes(p.get("Nome"))
+        )
+    )
+
     if not nomes_unicos:
         st.info("Nenhum integrante encontrado na escala.")
         return
@@ -70,21 +87,32 @@ def exibir_minha_escala():
         st.info("Por favor, selecione seu nome para ver sua escala.")
         return
 
+    # --- CORREÇÃO: pegar todas as funções e louvores do integrante ---
     escala_pessoal = []
     for escala in escalas:
         data = escala.get('Data')
         tipo = escala.get('Tipo')
         louvores_data = escala.get('louvores', [])
 
-        participante = next((m for m in escala.get('Escala', []) if m.get('Nome') == nome_selecionado), None)
+        # filtrar todas as linhas onde o integrante aparece
+        participacoes = [
+            p for p in escala.get("Escala", [])
+            if nome_selecionado in normalizar_nomes(p.get("Nome"))
+        ]
 
-        if participante:
-            funcoes = participante.get('Funcoes', [])
+        if participacoes:
+            # juntar todas funções do mesmo dia
+            funcoes = []
+            for p in participacoes:
+                funcoes.extend(p.get('Funcoes', []))
+            funcoes = sorted(set(funcoes))  # remover duplicatas
             funcoes_str = ", ".join(funcoes) if funcoes else "Sem função definida"
 
-            louvores_detalhados = [
-                f"{l} (Tom: {louvor_para_tom.get(l, 'N/A')})" for l in louvores_data
-            ]
+            # louvores: pegar apenas uma vez por data (evitar repetição)
+            louvores_detalhados = []
+            louvores_unicos = sorted(set(louvores_data))
+            for l in louvores_unicos:
+                louvores_detalhados.append(f"{l} (Tom: {louvor_para_tom.get(l, 'N/A')})")
 
             escala_pessoal.append({
                 "Data": data,
@@ -111,14 +139,15 @@ def exibir_minha_escala():
     st.subheader(f"🎤 Escala de {nome_selecionado}")
     for item in escala_pessoal:
         with st.expander(f"**🗓️ {item['Data']} - {item['Tipo']}**"):
-            st.markdown(f"**Função:** {item['Funcoes']}")
+            st.markdown(f"**Funções:** {item['Funcoes']}")
             if item['louvores']:
-                st.markdown("**louvores:**")
+                st.markdown("**Louvores:**")
                 for l in item['louvores']:
                     st.markdown(f"- {l}")
             else:
                 st.warning("Nenhum louvor cadastrado para esta data.")
 
+    # --- Downloads ---
     df_download = pd.DataFrame([{
         "Data": i["Data"],
         "Tipo": i["Tipo"],
@@ -126,7 +155,7 @@ def exibir_minha_escala():
         "louvores": ", ".join(i["louvores"])
     } for i in escala_pessoal])
 
-    # PDF / Excel / CSV downloads
+    # PDF
     pdf_buffer = io.BytesIO()
     doc = SimpleDocTemplate(pdf_buffer, pagesize=A4)
     styles = getSampleStyleSheet()
@@ -136,7 +165,7 @@ def exibir_minha_escala():
     elements.append(Paragraph(f"Escala de {nome_selecionado}", styles["Title"]))
     elements.append(Paragraph(" ", style_normal))
 
-    data_pdf = [["Data", "Tipo", "Funções", "louvores"]]
+    data_pdf = [["Data", "Tipo", "Funções", "Louvores"]]
     for item in escala_pessoal:
         louvores_formatados = Paragraph("<br/>".join(item["louvores"]), style_normal) if item["louvores"] else Paragraph("—", style_normal)
         data_pdf.append([item["Data"], item["Tipo"], item["Funcoes"], louvores_formatados])
@@ -164,6 +193,7 @@ def exibir_minha_escala():
         mime="application/pdf"
     )
 
+    # Excel
     towrite = io.BytesIO()
     with pd.ExcelWriter(towrite, engine='xlsxwriter') as writer:
         df_download.to_excel(writer, index=False, sheet_name='Minha Escala')
@@ -174,12 +204,14 @@ def exibir_minha_escala():
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
+    # CSV
     st.download_button(
         label="📥 Baixar Minha Escala (CSV)",
         data=df_download.to_csv(index=False).encode('utf-8'),
         file_name=f"escala_{nome_selecionado}.csv",
         mime="text/csv"
     )
+
 
 def exibir_escala_completa_integrantes():
     st.title("📋 Escala Completa")
@@ -189,41 +221,66 @@ def exibir_escala_completa_integrantes():
         st.info("Nenhuma escala salva ainda.")
         return
 
+    # normalizar datas
+    for esc in escalas:
+        esc['Data_obj'] = parse_date_str(esc['Data'])
+
     # lista de meses (manter histórico)
-    meses_disponiveis = sorted({
-        datetime.datetime.strptime(e['Data'], "%d/%m/%Y").strftime("%m/%Y")
-        for e in escalas
-    })
+    meses_disponiveis = sorted({esc['Data_obj'].strftime("%m/%Y") for esc in escalas if esc['Data_obj']})
     mes_atual = datetime.datetime.today().strftime("%m/%Y")
     index_padrao = meses_disponiveis.index(mes_atual) if mes_atual in meses_disponiveis else 0
     mes_escolhido = st.selectbox("📅 Selecione o mês:", meses_disponiveis, index=index_padrao)
 
+    # filtrar escalas do mês escolhido
     escalas_filtradas = [
         e for e in escalas
-        if datetime.datetime.strptime(e['Data'], "%d/%m/%Y").strftime("%m/%Y") == mes_escolhido
+        if e['Data_obj'] and e['Data_obj'].strftime("%m/%Y") == mes_escolhido
     ]
 
-    nomes_unicos = sorted(list({p['Nome'] for esc in escalas_filtradas for p in esc['Escala']}))
+    if not escalas_filtradas:
+        st.info(f"Nenhuma escala encontrada para {mes_escolhido}")
+        return
 
+    # ordenar escalas por data
     escalas_ordenadas = sorted(
         escalas_filtradas,
-        key=lambda e: datetime.datetime.strptime(e['Data'], "%d/%m/%Y")
+        key=lambda e: e['Data_obj']
     )
 
+    # nomes únicos
+    nomes_unicos = sorted({
+        n
+        for esc in escalas_ordenadas
+        for p in esc.get("Escala", [])
+        for n in normalizar_nomes(p.get("Nome"))
+    })
+
     df = pd.DataFrame({"Nome": nomes_unicos})
+
     for esc in escalas_ordenadas:
         coluna_nome = f"{esc['Data']} - {esc['Tipo']}"
-        dict_funcoes = {p['Nome']: ", ".join(p['Funcoes']) for p in esc['Escala']}
+        dict_funcoes = {}
+
+        for p in esc.get("Escala", []):
+            funcoes_str = ", ".join(p.get("Funcoes", []))
+            for nome in normalizar_nomes(p.get("Nome")):
+                if nome in dict_funcoes and funcoes_str:
+                    dict_funcoes[nome] += f", {funcoes_str}"
+                else:
+                    dict_funcoes[nome] = funcoes_str
+
         df[coluna_nome] = df['Nome'].map(dict_funcoes).fillna("")
 
+    # aplicar emojis
     df_display = df.copy()
     for col in df_display.columns[1:]:
         df_display[col] = df_display[col].apply(
             lambda x: ", ".join([FUNCAO_EMOJI_MAP.get(f.strip(), f.strip()) for f in x.split(',') if f.strip()]) if x else ""
         )
+
     st.dataframe(df_display, use_container_width=True)
 
-    # downloads
+    # ---- Download Excel ----
     towrite = io.BytesIO()
     with pd.ExcelWriter(towrite, engine='xlsxwriter') as writer:
         df_display.to_excel(writer, index=False, sheet_name='Escala')
@@ -234,6 +291,7 @@ def exibir_escala_completa_integrantes():
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
+    # ---- Download PDF ----
     pdf_buffer = io.BytesIO()
     doc = SimpleDocTemplate(pdf_buffer, pagesize=landscape(A4))
     styles = getSampleStyleSheet()
@@ -244,7 +302,7 @@ def exibir_escala_completa_integrantes():
     elements.append(Paragraph(" ", style_normal))
 
     colunas = df.columns.tolist()
-    data = [colunas]
+    data_pdf = [colunas]
 
     for _, row in df.iterrows():
         linha = []
@@ -253,12 +311,10 @@ def exibir_escala_completa_integrantes():
             if col != "Nome":
                 valor = Paragraph(valor.replace(", ", "<br/>"), style_normal)
             linha.append(valor)
-        data.append(linha)
+        data_pdf.append(linha)
 
     col_widths = [70] + [90 for _ in range(len(colunas)-1)]
-
-    table = LongTable(data, colWidths=col_widths, repeatRows=1)
-
+    table = LongTable(data_pdf, colWidths=col_widths, repeatRows=1)
     table.setStyle(TableStyle([
         ("BACKGROUND", (0,0), (-1,0), colors.lightblue),
         ("TEXTCOLOR", (0,0), (-1,0), colors.black),
@@ -280,6 +336,8 @@ def exibir_escala_completa_integrantes():
         file_name=f"escala_{mes_escolhido}.pdf",
         mime="application/pdf"
     )
+
+
 
 def interface_integrantes():
     tab1, tab2 = st.tabs(["Minha Escala", "Escala Completa"])
