@@ -14,8 +14,8 @@ import textwrap
 
 # ==================== CONFIG STREAMLIT =====================
 st.set_page_config(
-    page_title="Ministério de Louvor Redenção",
-    page_icon="🎵",
+    page_title="Portal de Escalas",
+    page_icon="logo.png",
     layout="wide"
 )
 
@@ -31,20 +31,20 @@ def aplicar_estilo():
 # ==================== PÁGINA INICIAL =====================
 
 def pagina_inicial():
+    # 🚫 Se já saiu da home, não renderiza nada
+    if st.session_state.get("modulo") != "home":
+        return
+
     st.markdown("<h1 style='text-align:center;'>Igreja Batista Redenção</h1>", unsafe_allow_html=True)
     st.markdown(
         "<p style='text-align:center;'>Portal de Escalas</p>",
         unsafe_allow_html=True
     )
     st.markdown(
-        "<p style='text-align:center;'>Selecione o Ministério que deseja acessar:</p>",
+        "<p style='text-align:center;'>Selecione o ministério que deseja acessar</p>",
         unsafe_allow_html=True
     )
 
-    st.write("")  # pequeno espaçamento
-    st.write("")
-
-    # Cria colunas para centralizar
     col1, col2, col3 = st.columns([1, 2, 1])
 
     with col2:
@@ -52,9 +52,7 @@ def pagina_inicial():
             st.session_state["modulo"] = "louvor"
             st.rerun()
 
-        st.write("")  # espaço entre botões
-
-        if st.button("📹 Ministério de Mídia", use_container_width=True):
+        if st.button("📹 Mídia", use_container_width=True):
             st.session_state["modulo"] = "midia"
             st.rerun()
 # ==================== APP =====================
