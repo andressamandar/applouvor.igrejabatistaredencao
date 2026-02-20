@@ -21,6 +21,8 @@ FUNCAO_EMOJI_MAP = {
     "Sonoplastia": "Sonoplastia🔊"
 }
 
+
+
 # ------------------ Helpers ------------------
 def show_round_svg_loader(text="Carregando..."):
     svg = f"""

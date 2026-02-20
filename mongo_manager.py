@@ -7,20 +7,18 @@ import streamlit as st
 try:
     mongo_uri = st.secrets["MONGODB_URI"]
     db_name = st.secrets["PORTAL_LOUVOR"]
-except Exception as e:
-    print("ERRO CRÍTICO: Variáveis MONGODB_URI ou PORTAL_LOUVOR não encontradas em st.secrets", file=sys.stderr)
+except Exception:
+    print("ERRO CRÍTICO: MONGODB_URI ou PORTAL_LOUVOR não encontrados no secrets", file=sys.stderr)
     sys.exit(1)
 
-# Conectar ao MongoDB
 try:
     client = MongoClient(mongo_uri)
     db = client[db_name]
-    print(f"DEBUG: Conexão com MongoDB estabelecida para o banco de dados: {db.name}")
 except Exception as e:
-    print(f"ERRO CRÍTICO: Falha ao conectar ao MongoDB. Detalhes: {e}", file=sys.stderr)
+    print(f"ERRO CRÍTICO: Falha ao conectar ao MongoDB: {e}", file=sys.stderr)
     sys.exit(1)
 
-# Collections
+# ==================== COLLECTIONS =====================
 datas_col = db["datas"]
 disponibilidades_col = db["disponibilidades"]
 funcoes_col = db["funcoes"]
@@ -28,19 +26,49 @@ escala_col = db["escala"]
 louvores_col = db["louvores"]
 integrantes_col = db["integrantes"]
 
-# ==================== louvores =====================
+
+# ==================== LOUVORES (CRUD) =====================
 def salvar_louvor_bd(louvor_nome, link, tom):
     louvores_col.replace_one(
         {"louvor": louvor_nome},
         {"louvor": louvor_nome, "link": link, "tom": tom},
         upsert=True
     )
-    print(f"DEBUG: Louvor '{louvor_nome}' salvo/atualizado.")
+
+def atualizar_louvor_bd(nome_antigo, novo_nome, link, tom):
+    louvores_col.update_one(
+        {"louvor": nome_antigo},
+        {"$set": {"louvor": novo_nome, "link": link, "tom": tom}}
+    )
 
 def excluir_louvor(louvor_nome):
     louvores_col.delete_one({"louvor": louvor_nome})
-    print(f"DEBUG: Louvor '{louvor_nome}' excluído.")
 
+def carregar_louvores():
+    """
+    Retorna louvores com detalhes:
+    [{louvor, tom, link}]
+    """
+    return list(louvores_col.find({}, {"_id": 0}))
+
+def carregar_louvores_lista():
+    """
+    Mantido por compatibilidade (admin antigo)
+    """
+    return carregar_louvores()
+
+def buscar_louvores_disponiveis():
+    """
+    Retorna apenas os nomes dos louvores
+    (selectbox / multiselect)
+    """
+    return sorted(
+        l["louvor"]
+        for l in louvores_col.find({}, {"louvor": 1})
+        if l.get("louvor")
+    )
+
+# ==================== DATAS =====================
 def salvar_data(data_str, tipo):
     datas_col.insert_one({"Data": data_str, "Tipo": tipo})
 
@@ -50,7 +78,6 @@ def carregar_datas():
 def excluir_data(data_str):
     datas_col.delete_one({"Data": data_str})
     disponibilidades_col.delete_many({"Data": data_str})
-    print(f"DEBUG: Data {data_str} e suas disponibilidades relacionadas excluídas.")
 
 # ==================== DISPONIBILIDADE =====================
 def salvar_disponibilidade(nome, data_str, disponivel=True):
@@ -59,113 +86,157 @@ def salvar_disponibilidade(nome, data_str, disponivel=True):
         {"$set": {"Disponivel": disponivel}},
         upsert=True
     )
-    print(f"DEBUG: Disponibilidade salva para {nome} em {data_str}: {disponivel}")
 
 def carregar_disponibilidade():
-    registros = list(disponibilidades_col.find({}, {"_id": 0}))
-    print("DEBUG: Registros carregados:", registros)
-    return registros
+    return list(disponibilidades_col.find({}, {"_id": 0}))
 
 # ==================== ESCALA =====================
 def salvar_escala(data_str, tipo, escala_lista):
-    documento = {"Data": data_str, "Tipo": tipo, "Escala": escala_lista, "louvores": []}
-    escala_col.replace_one({"Data": data_str}, documento, upsert=True)
-    print(f"DEBUG: Escala salva para {data_str} sem louvores.")
-
+    escala_col.replace_one(
+        {"Data": data_str},
+        {
+            "Data": data_str,
+            "Tipo": tipo,
+            "Escala": escala_lista,
+            "louvores": []
+        },
+        upsert=True
+    )
 
 def carregar_escala():
     escalas = list(escala_col.find({}, {"_id": 0}))
     for e in escalas:
-        e.setdefault('louvores', [])  # garante que o campo louvores exista
+        e.setdefault("louvores", [])
     return escalas
 
-def atualizar_louvores_escala(data_str, louvores):
-    escala_col.update_one(
-        {"Data": data_str},
-        {"$set": {"louvores": louvores}},
-        upsert=False
-    )
-    print(f"DEBUG: louvores atualizados para {data_str}: {louvores}")
+def buscar_escala_por_data(data):
+    return escala_col.find_one({"Data": data}, {"_id": 0})
 
-# ==================== louvores =====================
-def carregar_louvores_lista():
-    return list(louvores_col.find({}, {"_id": 0}))
-
-def salvar_louvor(data_str, louvores):
-    if not data_str or not isinstance(louvores, list):
-        print(f"ERRO: Dados inválidos ao salvar louvor. Data: {data_str}, louvores: {louvores}")
-        return
-    louvores_col.replace_one(
-        {"Data": data_str},
-        {"Data": data_str, "louvores": louvores},
-        upsert=True
-    )
-    print(f"DEBUG: Louvor salvo para {data_str}.")
-
-def carregar_louvores_por_escala(data_str):
-    doc = escala_col.find_one({"Data": data_str}, {"_id": 0, "louvores": 1})
-    return doc.get("louvores", []) if doc else []
-
-def carregar_louvores():
-    return list(louvores_col.find({}, {"_id": 0}))
-
-def carregar_louvor_por_data(data_str):
-    doc = louvores_col.find_one({"Data": data_str}, {"_id": 0})
-    return doc["louvores"] if doc and "louvores" in doc else []
-
-# ==================== FUNÇÕES DOS INTEGRANTES =====================
+# ==================== FUNÇÕES / INTEGRANTES =====================
 def salvar_funcoes(nome, lista_funcoes):
     funcoes_col.replace_one(
         {"Nome": nome},
         {"Nome": nome, "Funcoes": lista_funcoes},
         upsert=True
     )
-    print(f"DEBUG: Funções salvas para {nome}.")
 
 def carregar_integrantes():
     return list(integrantes_col.find({}, {"_id": 0}))
 
 def carregar_funcoes():
     data = list(funcoes_col.find({}, {"_id": 0}))
-    INTEGRANTES = sorted([d["Nome"] for d in data]) if data else []
-    all_funcoes_list = []
-    for item in data:
-        if "Funcoes" in item and isinstance(item["Funcoes"], list):
-            all_funcoes_list.extend(item["Funcoes"])
-    FUNCOES = sorted(list(set(all_funcoes_list))) if all_funcoes_list else []
 
-    rows_list = []
-    for integrante_doc in data:
-        nome = integrante_doc.get("Nome")
-        funcoes = integrante_doc.get("Funcoes", [])
-        row_data = {'Nome': nome}
-        for func in FUNCOES:
-            row_data[func] = "ok" if func in funcoes else ""
-        rows_list.append(row_data)
+    integrantes = sorted([d["Nome"] for d in data]) if data else []
+    funcoes = sorted({f for d in data for f in d.get("Funcoes", [])})
 
-    df_funcoes_pivot = pd.DataFrame(rows_list)
-    if df_funcoes_pivot.empty:
-        df_funcoes_pivot = pd.DataFrame(columns=['Nome'] + FUNCOES)
+    rows = []
+    for d in data:
+        row = {"Nome": d["Nome"]}
+        for f in funcoes:
+            row[f] = "ok" if f in d.get("Funcoes", []) else ""
+        rows.append(row)
 
-    return df_funcoes_pivot, FUNCOES, INTEGRANTES
+    df = pd.DataFrame(rows) if rows else pd.DataFrame(columns=["Nome"] + funcoes)
+    return df, funcoes, integrantes
 
-def atualizar_louvor_bd(nome_antigo, novo_nome, link, tom):
-    louvores_col.update_one(
-        {"louvor": nome_antigo},
-        {"$set": {"louvor": novo_nome, "link": link, "tom": tom}}
+# ==================== MINISTRO =====================
+def buscar_datas_ministro(nome_ministro):
+    datas = []
+
+    docs = escala_col.find({}, {"Data": 1, "Tipo": 1, "Escala": 1})
+
+    for doc in docs:
+        for pessoa in doc.get("Escala", []):
+            nomes = pessoa.get("Nome")
+
+            # Nome pode ser string ou lista
+            if isinstance(nomes, list):
+                condicao_nome = nome_ministro in nomes
+            else:
+                condicao_nome = nome_ministro == nomes
+
+            if condicao_nome and "Ministração" in pessoa.get("Funcoes", []):
+                datas.append({
+                    "Data": doc.get("Data"),
+                    "Culto": doc.get("Tipo", "")
+                })
+
+    return datas
+
+def buscar_ministros():
+    ministros = set()
+    escalas = escala_col.find()
+
+    for escala in escalas:
+        for pessoa in escala.get("Escala", []):
+            funcoes = pessoa.get("Funcoes", [])
+
+            if "Ministração" in funcoes:
+                nomes = pessoa.get("Nome")
+
+                # 🔹 Se for lista, adiciona nome por nome
+                if isinstance(nomes, list):
+                    for nome in nomes:
+                        ministros.add(nome)
+
+                # 🔹 Se for string
+                elif isinstance(nomes, str):
+                    ministros.add(nomes)
+
+    return sorted(ministros)
+
+def carregar_datas_ministro(nome_ministro):
+    datas = []
+    docs = escala_col.find({}, {"Data": 1, "Tipo": 1, "Escala": 1})
+
+    for doc in docs:
+        for p in doc.get("Escala", []):
+            if p.get("Nome") == nome_ministro and "Ministração" in p.get("Funcoes", []):
+                datas.append({
+                    "Data": doc["Data"],
+                    "Culto": doc.get("Tipo", "")
+                })
+    return datas
+
+# ==================== LOUVORES NA ESCALA =====================
+def salvar_louvores_ministro(data, ministro, louvores):
+    """
+    Ministro salva os louvores da data
+    """
+    escala_col.update_one(
+        {"Data": data},
+        {"$set": {"louvores": louvores}}
     )
-    print(f"DEBUG: Louvor '{nome_antigo}' atualizado para '{novo_nome}'.")
-    
-# No arquivo mongo_manager.py
 
-def atualizar_louvores_escala(data_escala, louvores_lista):
- 
-    try:
-        escala_col.update_one(
-            {"Data": data_escala},
-            {"$set": {"louvores": louvores_lista}}
+def atualizar_louvores_escala(data, louvores):
+    """
+    Admin atualiza louvores da escala
+    """
+    escala_col.update_one(
+        {"Data": data},
+        {"$set": {"louvores": louvores}}
+    )
+
+def verificar_louvor_ja_escolhido(data_atual, louvor):
+    """
+    Retorna avisos apenas se o louvor estiver em OUTRAS datas.
+    """
+    avisos = []
+
+    docs = escala_col.find(
+        {
+            "louvores": louvor,
+            "Data": {"$ne": data_atual}  # 🔥 ignora a própria data
+        },
+        {"Data": 1, "_id": 0}
+    )
+
+    datas_conflito = [d["Data"] for d in docs]
+
+    if datas_conflito:
+        datas_txt = ", ".join(datas_conflito)
+        avisos.append(
+            f"⚠️ O louvor **{louvor}** já está escalado em: {datas_txt}"
         )
-        print(f"DEBUG: louvores atualizados para a escala de {data_escala}.")
-    except Exception as e:
-        print(f"ERRO: Falha ao atualizar louvores. Detalhes: {e}")
-        st.error(f"Erro ao salvar os louvores: {e}")
+
+    return avisos
