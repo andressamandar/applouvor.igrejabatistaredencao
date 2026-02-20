@@ -52,7 +52,7 @@ def pagina_inicial():
             st.session_state["modulo"] = "louvor"
             st.rerun()
 
-        if st.button("📹 Mídia", use_container_width=True):
+        if st.button("📹 Ministério de Mídia", use_container_width=True):
             st.session_state["modulo"] = "midia"
             st.rerun()
 # ==================== APP =====================
