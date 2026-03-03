@@ -217,26 +217,44 @@ def atualizar_louvores_escala(data, louvores):
         {"$set": {"louvores": louvores}}
     )
 
+from datetime import datetime
+
 def verificar_louvor_ja_escolhido(data_atual, louvor):
     """
-    Retorna avisos apenas se o louvor estiver em OUTRAS datas.
+    Retorna avisos apenas se o louvor estiver em OUTRAS datas
+    do MESMO MÊS e ANO.
     """
     avisos = []
+
+    try:
+        data_ref = datetime.strptime(data_atual, "%d/%m/%Y")
+        mes_ref = data_ref.month
+        ano_ref = data_ref.year
+    except:
+        return avisos
 
     docs = escala_col.find(
         {
             "louvores": louvor,
-            "Data": {"$ne": data_atual}  # 🔥 ignora a própria data
+            "Data": {"$ne": data_atual}
         },
         {"Data": 1, "_id": 0}
     )
 
-    datas_conflito = [d["Data"] for d in docs]
+    datas_conflito = []
+
+    for d in docs:
+        try:
+            data_doc = datetime.strptime(d["Data"], "%d/%m/%Y")
+            if data_doc.month == mes_ref and data_doc.year == ano_ref:
+                datas_conflito.append(d["Data"])
+        except:
+            continue
 
     if datas_conflito:
         datas_txt = ", ".join(datas_conflito)
         avisos.append(
-            f"⚠️ O louvor **{louvor}** já está escalado em: {datas_txt}"
+            f"⚠️ O louvor **{louvor}** já está escalado neste mês em: {datas_txt}"
         )
 
     return avisos

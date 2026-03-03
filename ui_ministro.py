@@ -87,15 +87,29 @@ def interface_ministro():
         st.rerun()
 
     # ================== DATAS ==================
+    from datetime import datetime
+
     datas = buscar_datas_ministro(nome_ministro)
 
-    if not datas:
-        st.info("Você não possui ministrações escaladas")
+    # 🔥 FILTRAR APENAS DATAS DE HOJE PARA FRENTE
+    hoje = datetime.today().date()
+
+    datas_filtradas = []
+    for d in datas:
+        try:
+            data_obj = datetime.strptime(d["Data"], "%d/%m/%Y").date()
+            if data_obj >= hoje:
+                datas_filtradas.append(d)
+        except:
+            continue
+
+    if not datas_filtradas:
+        st.info("Você não possui ministrações futuras escaladas")
         return
 
     data_escolhida = st.selectbox(
         "📅 Selecione a data",
-        datas,
+        datas_filtradas,
         format_func=lambda d: f"{d['Data']} - {d['Culto']}"
     )
 
