@@ -1,5 +1,7 @@
 import datetime
 import io
+import streamlit as st
+import streamlit.components.v1 as components
 from mongo_manager import (
     carregar_louvores_lista, carregar_datas, salvar_data, excluir_data,
     carregar_disponibilidade,carregar_integrantes, carregar_funcoes, salvar_escala, carregar_escala, atualizar_louvores_escala
@@ -236,15 +238,50 @@ def interface_escalar_funcoes():
         st.success("✅ Todos os integrantes já preencheram a disponibilidade!")
     else:
         st.warning("⚠️ Ainda existem integrantes que não preencheram a disponibilidade.")
-        with st.expander("📋 Status de Disponibilidade"):
-            if presentes:
-                for n in presentes:
-                    st.write(f"✅ {n}")
-            else:
-                st.write("— Nenhum integrante marcou disponibilidade ainda —")
-            if faltando:
-                for n in faltando:
-                    st.write(f"❌ {n}")
+        # --- Dentro de ui_admin.py, na função interface_escalar_funcoes() ---
+
+    if not faltando and len(integrantes) > 0:
+        st.success("✅ Todos já preencheram!")
+    else:
+        if not faltando and len(integrantes) > 0:
+            st.success("✅ Todos já preencheram!")
+        else:
+            with st.expander("📋 Status de Disponibilidade"):
+
+                texto_copia = "📊 STATUS DE DISPONIBILIDADE\n\n"
+                texto_copia += "✅ Disponibilidade Preenchida:\n" + ("\n".join([f"- {n}" for n in presentes]) if presentes else "Nenhum")
+                texto_copia += "\n\n❌ Falta Preencher Disponidade:\n" + ("\n".join([f"- {n}" for n in faltando]) if faltando else "Nenhum")
+
+                # Botão copiar funcional
+                components.html(f"""
+                    <button onclick="navigator.clipboard.writeText(`{texto_copia}`)"
+                    style="
+                        background-color:#115a8a;
+                        color:white;
+                        padding:8px 12px;
+                        border:none;
+                        border-radius:6px;
+                        cursor:pointer;
+                        font-size:14px;
+                    ">
+                    📋 Copiar lista
+                    </button>
+                """, height=50)
+
+                st.divider()
+
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    st.markdown("**Disponibilidade Preenchida**")
+                    for nome in presentes:
+                        st.write(f"✅ {nome}")
+
+                with col2:
+                    st.markdown("**Falta Preencher Disponidade**")
+                    for nome in faltando:
+                        st.write(f"❌ {nome}")
+
 
     # Escala por função
     st.subheader("🎯 Escalar por Função")
@@ -581,7 +618,12 @@ def interface_visualizar_disponibilidades():
 
     # ---- Tabela ----
     st.subheader(f"📅 Tabela de Disponibilidades — {ultimo_mes}")
-    st.dataframe(df_disp, use_container_width=True)
+    st.dataframe(
+        df_disp, # Corrigido de df para df_disp
+        use_container_width=True, 
+        hide_index=True,
+        column_config={"Nome": st.column_config.TextColumn("Nome", pinned=True)}
+    )
 
     # =================== PAINEL — Integrantes com 1 data ===================
     st.markdown("---")
@@ -705,7 +747,12 @@ def download_escala_final():
         )
 
     # mostrar apenas a versão com emojis
-    st.dataframe(df_display, use_container_width=True)
+    st.dataframe(
+        df_display, 
+        use_container_width=True, 
+        hide_index=True,
+        column_config={"Nome": st.column_config.TextColumn("Nome", pinned=True)}
+    )
 
     # --- GERAR EXCEL ---
     excel_buffer = io.BytesIO()
