@@ -1,3 +1,5 @@
+import re
+
 import streamlit as st
 from mongo_manager import carregar_escala, carregar_louvores
 import pandas as pd
@@ -5,7 +7,7 @@ import io
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 import datetime
 
 FUNCAO_EMOJI_MAP = {
@@ -64,37 +66,63 @@ def normalizar_nomes(nomes):
         return [nomes]
     return []
 
+def limpar_texto_pdf(texto):
+    if not isinstance(texto, str):
+        return str(texto)
+    # Esta regex remove apenas caracteres especiais de "High Surrogate" (emojis) 
+    # e mantém letras, números, acentuação e pontuação.
+    return "".join(c for c in texto if ord(c) < 0x10000)
 
-
-
-# ================== FUNÇÃO AUXILIAR PARA PDF ==================
 def gerar_pdf_escala(df, titulo="Escala"):
     buffer = io.BytesIO()
-    # Usamos landscape (deitado) porque escalas costumam ter muitas colunas
-    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4))
+    # Paisagem com margens mínimas
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), 
+                            leftMargin=15, rightMargin=15, topMargin=20, bottomMargin=20)
     elements = []
     styles = getSampleStyleSheet()
     
-    elements.append(Paragraph(titulo, styles['Title']))
+    # Estilo das células: Fonte pequena e QUEBRA DE LINHA ativada
+    style_cell = ParagraphStyle(
+        'cell_style',
+        parent=styles['Normal'],
+        fontSize=7,
+        leading=9,
+        alignment=1, # Centralizado
+        wordWrap='LTR' # Força quebra de linha para não estourar a largura
+    )
+
+    elements.append(Paragraph(limpar_texto_pdf(titulo), styles['Title']))
     elements.append(Spacer(1, 12))
 
-    # Converter DataFrame para lista para a tabela do ReportLab
-    data = [df.columns.to_list()] + df.values.tolist()
+    formatted_data = []
     
-    # Ajuste automático de largura de colunas (aproximado)
+    # Cabeçalho
+    header_row = [Paragraph(f"<b>{limpar_texto_pdf(col)}</b>", style_cell) for col in df.columns]
+    formatted_data.append(header_row)
+    
+    # Linhas
+    for _, row in df.iterrows():
+        formatted_row = [Paragraph(limpar_texto_pdf(item), style_cell) for item in row]
+        formatted_data.append(formatted_row)
+    
+    # Ajuste de largura: Nome com 18%, o resto divide o espaço
     num_cols = len(df.columns)
-    col_width = (doc.width) / num_cols
+    available_width = doc.width
+    if num_cols > 1:
+        name_w = available_width * 0.18
+        other_w = (available_width - name_w) / (num_cols - 1)
+        col_widths = [name_w] + [other_w] * (num_cols - 1)
+    else:
+        col_widths = [available_width]
 
-    t = Table(data, colWidths=[col_width] * num_cols)
+    t = Table(formatted_data, colWidths=col_widths, repeatRows=1)
     t.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 8),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 3),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 3),
     ]))
     
     elements.append(t)
