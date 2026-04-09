@@ -336,7 +336,7 @@ def tarefas_integrante(nome):
             tarefas_disponiveis.append(t)
 
     # ================= DISPONÍVEIS =================
-    st.markdown("### 🟡 Tarefas disponíveis")
+    st.markdown("### Tarefas disponíveis")
 
     if not tarefas_disponiveis:
         st.info("Nenhuma tarefa disponível")
@@ -355,7 +355,7 @@ def tarefas_integrante(nome):
                     st.rerun()
 
     # ================= EM ANDAMENTO =================
-    st.markdown("### 🔵 Tarefas em andamento")
+    st.markdown("### Tarefas em andamento")
 
     if not tarefas_andamento:
         st.info("Nenhuma tarefa em andamento")
