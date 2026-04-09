@@ -285,6 +285,8 @@ def minha_escala(nome):
         )
 # ================= ESCALA COMPLETA =================
 def escala_completa():
+    st.subheader("📊 Escala completa")
+
     escalas = carregar_escala_midia() or []
 
     if not escalas:
@@ -301,7 +303,11 @@ def escala_completa():
     df = pd.DataFrame({"Nome": nomes})
 
     for e in escalas:
-        col = e.get("Data")
+        tipo = e.get("Tipo") or e.get("tipo") or ""
+        data = e.get("Data")
+
+        col = f"{tipo} - {data}" if tipo else data
+
         mapa = {}
 
         for p in e.get("Escala", []):
@@ -310,8 +316,54 @@ def escala_completa():
 
         df[col] = df["Nome"].map(mapa).fillna("")
 
-    st.dataframe(df, use_container_width=True)
+    # 🔥 FIXAR NOME
+    df_exibicao = df.set_index("Nome")
+    st.dataframe(df_exibicao, use_container_width=True)
 
+    # ================= PDF DIRETO =================
+    from reportlab.lib.pagesizes import A4, landscape
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4))
+
+    styles = getSampleStyleSheet()
+    elementos = []
+
+    elementos.append(Paragraph("Escala Completa - Mídia", styles["Title"]))
+
+    df_pdf = df.copy().astype(str)
+    dados = [df_pdf.columns.tolist()] + df_pdf.values.tolist()
+
+    total_colunas = len(df_pdf.columns)
+    largura_total = 800
+    col_widths = [largura_total / total_colunas] * total_colunas
+
+    tabela = Table(dados, colWidths=col_widths, repeatRows=1)
+
+    tabela.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,0), colors.lightgrey),
+        ("GRID", (0,0), (-1,-1), 0.25, colors.grey),
+        ("ALIGN", (0,0), (-1,-1), "CENTER"),
+        ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+        ("FONTSIZE", (0,0), (-1,-1), 7),
+        ("LEFTPADDING", (0,0), (-1,-1), 4),
+        ("RIGHTPADDING", (0,0), (-1,-1), 4),
+        ("TOPPADDING", (0,0), (-1,-1), 2),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 2),
+    ]))
+
+    elementos.append(tabela)
+
+    doc.build(elementos)
+
+    # 🔥 BOTÃO ÚNICO
+    st.download_button(
+        "📄 Baixar escala completa (PDF)",
+        data=buffer.getvalue(),
+        file_name="escala_completa_midia.pdf",
+        mime="application/pdf",
+        use_container_width=True
+    )
 # ================= TAREFAS =================
 def tarefas_integrante(nome):
     st.subheader("📋 Tarefas")
