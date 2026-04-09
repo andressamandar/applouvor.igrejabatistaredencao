@@ -167,31 +167,73 @@ def interface_admin():
 # ------------------ Gerenciar Datas ------------------
 def gerenciar_datas():
     datas_df = st.session_state['datas_df']
-    st.subheader("Cadastro de Datas de Cultos")
-    data_input = st.date_input("Escolha uma data:", min_value=datetime.date.today())
-    tipo = st.selectbox("Tipo de culto:", ["Ceia", "Quinta", "Domingo", "Outros"])
 
+    st.subheader("Cadastro de Datas de Cultos")
+
+    data_input = st.date_input(
+        "Escolha uma data:",
+        min_value=datetime.date.today()
+    )
+
+    tipo = st.selectbox(
+        "Tipo de culto:",
+        ["Ceia", "Quinta", "Domingo", "Outros"]
+    )
+
+    # 🔥 Campo extra quando for "Outros"
+    tipo_personalizado = ""
+    if tipo == "Outros":
+        tipo_personalizado = st.text_input("Digite o nome do evento")
+
+    # ===== SALVAR =====
     if st.button("Adicionar data"):
         data_str = data_input.strftime("%d/%m/%Y")
-        salvar_data(data_str, tipo)
-        st.success(f"Data adicionada: {data_str} com sucesso!")
-        st.session_state['datas_df'] = pd.DataFrame(load_with_spinner(carregar_datas, label="Atualizando datas..."))
+
+        # 🔥 Define o tipo final
+        tipo_final = tipo
+
+        if tipo == "Outros":
+            if not tipo_personalizado:
+                st.warning("Digite o nome do evento")
+                return
+            tipo_final = tipo_personalizado
+
+        salvar_data(data_str, tipo_final)
+
+        st.success(f"Data adicionada: {data_str} ({tipo_final}) com sucesso!")
+
+        # Atualiza tabela
+        st.session_state['datas_df'] = pd.DataFrame(
+            load_with_spinner(carregar_datas, label="Atualizando datas...")
+        )
+
         trigger_refresh()
 
+    # ===== LISTAR =====
     st.subheader("Datas cadastradas")
     st.dataframe(datas_df)
 
+    # ===== EXCLUIR =====
     st.subheader("Excluir data")
+
     if not datas_df.empty:
-        data_para_excluir = st.selectbox("Selecione a data a excluir:", datas_df['Data'].unique())
+        data_para_excluir = st.selectbox(
+            "Selecione a data a excluir:",
+            datas_df['Data'].unique()
+        )
+
         if st.button("Excluir data selecionada"):
             excluir_data(data_para_excluir)
+
             st.success(f"Data {data_para_excluir} excluída com sucesso!")
-            st.session_state['datas_df'] = pd.DataFrame(load_with_spinner(carregar_datas, label="Atualizando datas..."))
+
+            st.session_state['datas_df'] = pd.DataFrame(
+                load_with_spinner(carregar_datas, label="Atualizando datas...")
+            )
+
             trigger_refresh()
     else:
         st.info("Nenhuma data cadastrada.")
-
 # ------------------ Criar Escala ------------------
 def interface_escalar_funcoes():
     disp_df = st.session_state.get('disp_df', pd.DataFrame())

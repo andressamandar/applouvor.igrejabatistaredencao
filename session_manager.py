@@ -44,6 +44,20 @@ def login_admin(senha_digitada: str) -> bool:
 def logout_admin():
     st.session_state["admin_logado"] = False
     st.session_state["admin_login_time"] = None
+    
+def login_admin_midia(senha_digitada: str) -> bool:
+    senha_admin = st.secrets.get("midia", {}).get("senha")
+
+    if not senha_admin:
+        st.error("Senha da mídia não configurada em st.secrets.")
+        return False
+
+    if senha_digitada == senha_admin:
+        st.session_state["admin_logado"] = True
+        st.session_state["admin_login_time"] = time.time()
+        return True
+
+    return False
 
 
 # ==================== MINISTRO =====================

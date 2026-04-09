@@ -1,9 +1,8 @@
 import streamlit as st
 import os
-
 from mongo_manager import carregar_funcoes
+from midia.ui_midia import interface_midia
 from session_manager import check_login
-
 from ui_disponibilidade import interface_disponibilidade
 from ui_louvores import interface_integrantes_louvores
 from ui_admin import interface_admin
@@ -71,11 +70,12 @@ def main():
     # ==================== MÍDIA =====================
     if st.session_state["modulo"] == "midia":
         st.markdown("## 📹 Ministério de Mídia")
-        st.info("🚧 Página em construção")
 
         if st.button("⬅ Voltar para o início"):
             st.session_state["modulo"] = "home"
             st.rerun()
+
+        interface_midia()  # 🔥 CHAMA SUA NOVA INTERFACE
         return
 
     # ==================== MINISTÉRIO DE LOUVOR =====================
@@ -142,6 +142,8 @@ def main():
 
             if admin_opcao == "Liderança":
                 interface_admin()
+                
+
 
 
 # ==================== EXECUÇÃO =====================

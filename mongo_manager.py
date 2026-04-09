@@ -6,7 +6,7 @@ import streamlit as st
 # ==================== CONEXÃO COM MONGODB =====================
 try:
     mongo_uri = st.secrets["MONGODB_URI"]
-    db_name = st.secrets["PORTAL_LOUVOR"]
+    db_name = st.secrets["PORTAL_LOUVOR_DEV"]
 except Exception:
     print("ERRO CRÍTICO: MONGODB_URI ou PORTAL_LOUVOR não encontrados no secrets", file=sys.stderr)
     sys.exit(1)
@@ -258,3 +258,118 @@ def verificar_louvor_ja_escolhido(data_atual, louvor):
         )
 
     return avisos
+
+# ==================== MIDIA =====================
+
+# -------- DATAS --------
+def salvar_data_midia(data_str, tipo):
+    db["midia_datas"].insert_one({"Data": data_str, "Tipo": tipo})
+
+def carregar_datas_midia():
+    return list(db["midia_datas"].find({}, {"_id": 0}))
+
+def excluir_data_midia(data_str):
+    db["midia_datas"].delete_one({"Data": data_str})
+    db["midia_disponibilidades"].delete_many({"Data": data_str})
+
+
+# -------- DISPONIBILIDADE --------
+def salvar_disponibilidade_midia(nome, data_str, disponivel=True):
+    db["midia_disponibilidades"].update_one(
+        {"Nome": nome, "Data": data_str},
+        {"$set": {"Disponivel": disponivel}},
+        upsert=True
+    )
+
+def carregar_disponibilidade_midia():
+    return list(db["midia_disponibilidades"].find({}, {"_id": 0}))
+
+
+# -------- ESCALA --------
+def salvar_escala_midia(data_str, tipo, escala_lista):
+    db["midia_escala"].replace_one(
+        {"Data": data_str},
+        {
+            "Data": data_str,
+            "Tipo": tipo,
+            "Escala": escala_lista
+        },
+        upsert=True
+    )
+
+def carregar_escala_midia():
+    return list(db["midia_escala"].find({}, {"_id": 0}))
+
+
+# -------- FUNÇÕES --------
+def carregar_funcoes_midia():
+    data = list(db["midia_funcoes"].find({}, {"_id": 0}))
+
+    integrantes = sorted([
+    d.get("Nome") or d.get("nome")
+    for d in data
+    if d.get("Nome") or d.get("nome")
+    ]) if data else []
+    funcoes = sorted({f for d in data for f in d.get("Funcoes", [])})
+
+    return data, funcoes, integrantes
+
+
+# -------- TAREFAS --------
+def criar_tarefa_midia(titulo, responsavel=None):
+    db["midia_tarefas"].insert_one({
+        "titulo": titulo,
+        "responsavel": None,
+        "status": "A Fazer"
+    })
+
+def carregar_tarefas_midia():
+    return list(db["midia_tarefas"].find({}, {"_id": 0}))
+
+def atualizar_status_tarefa_midia(titulo, status):
+    db["midia_tarefas"].update_one(
+        {"titulo": titulo},
+        {"$set": {"status": status}}
+    )
+    
+
+def carregar_integrantes_midia():
+    data = list(db["midia_funcoes"].find({}, {"_id": 0}))
+
+    return sorted([
+        d.get("Nome")
+        for d in data
+        if d.get("Nome")
+    ])
+    
+def assumir_tarefa_midia(titulo, nome):
+    db["midia_tarefas"].update_one(
+        {"titulo": titulo},
+        {"$set": {"responsavel": nome, "status": "Fazendo"}}
+    )
+    
+# ================= INTEGRANTES MIDIA =================
+
+def salvar_integrante_midia(nome, funcoes):
+    db["midia_funcoes"].update_one(
+        {"nome": nome},
+        {"$set": {
+            "nome": nome,   # 🔥 PADRÃO DEFINITIVO
+            "funcoes": funcoes
+        }},
+        upsert=True
+    )
+
+def carregar_integrantes_midia():
+    dados = list(db["midia_funcoes"].find({}, {"_id": 0}))
+
+    nomes = []
+    for i in dados:
+        nome = i.get("nome") or i.get("Nome")
+        if nome:
+            nomes.append(nome)
+
+    return sorted(nomes)
+
+def excluir_integrante_midia(nome):
+    db["midia_funcoes"].delete_one({"nome": nome})

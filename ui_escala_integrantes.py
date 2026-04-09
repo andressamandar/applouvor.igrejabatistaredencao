@@ -1,7 +1,5 @@
 import re
-
 import streamlit as st
-from mongo_manager import carregar_escala, carregar_louvores
 import pandas as pd
 import io
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
@@ -9,6 +7,7 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 import datetime
+from mongo_manager import carregar_escala, carregar_louvores, carregar_escala_midia
 
 FUNCAO_EMOJI_MAP = {
     "Ministração": "MinistraçãoⓂ️",
@@ -56,7 +55,7 @@ def load_with_spinner(fn, *args, label="Carregando..."):
 def parse_date_str(data_str):
     try:
         return datetime.datetime.strptime(data_str, "%d/%m/%Y").date()
-    except Exception:
+    except:
         return None
 
 def normalizar_nomes(nomes):
@@ -69,67 +68,68 @@ def normalizar_nomes(nomes):
 def limpar_texto_pdf(texto):
     if not isinstance(texto, str):
         return str(texto)
-    # Esta regex remove apenas caracteres especiais de "High Surrogate" (emojis) 
-    # e mantém letras, números, acentuação e pontuação.
     return "".join(c for c in texto if ord(c) < 0x10000)
 
-def gerar_pdf_escala(df, titulo="Escala"):
+# ================== NOVO PDF MULTIPLO ==================
+def gerar_pdf_multiplas_tabelas(tabelas):
     buffer = io.BytesIO()
-    # Paisagem com margens mínimas
-    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), 
-                            leftMargin=15, rightMargin=15, topMargin=20, bottomMargin=20)
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(A4),
+        leftMargin=15, rightMargin=15, topMargin=20, bottomMargin=20
+    )
+
     elements = []
     styles = getSampleStyleSheet()
-    
-    # Estilo das células: Fonte pequena e QUEBRA DE LINHA ativada
+
     style_cell = ParagraphStyle(
         'cell_style',
         parent=styles['Normal'],
         fontSize=7,
         leading=9,
-        alignment=1, # Centralizado
-        wordWrap='LTR' # Força quebra de linha para não estourar a largura
+        alignment=1,
+        wordWrap='LTR'
     )
 
-    elements.append(Paragraph(limpar_texto_pdf(titulo), styles['Title']))
-    elements.append(Spacer(1, 12))
+    for bloco in tabelas:
+        df = bloco["df"]
+        titulo = bloco["titulo"]
 
-    formatted_data = []
-    
-    # Cabeçalho
-    header_row = [Paragraph(f"<b>{limpar_texto_pdf(col)}</b>", style_cell) for col in df.columns]
-    formatted_data.append(header_row)
-    
-    # Linhas
-    for _, row in df.iterrows():
-        formatted_row = [Paragraph(limpar_texto_pdf(item), style_cell) for item in row]
-        formatted_data.append(formatted_row)
-    
-    # Ajuste de largura: Nome com 18%, o resto divide o espaço
-    num_cols = len(df.columns)
-    available_width = doc.width
-    if num_cols > 1:
-        name_w = available_width * 0.18
-        other_w = (available_width - name_w) / (num_cols - 1)
-        col_widths = [name_w] + [other_w] * (num_cols - 1)
-    else:
-        col_widths = [available_width]
+        elements.append(Paragraph(limpar_texto_pdf(titulo), styles['Title']))
+        elements.append(Spacer(1, 12))
 
-    t = Table(formatted_data, colWidths=col_widths, repeatRows=1)
-    t.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 3),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 3),
-    ]))
-    
-    elements.append(t)
+        formatted_data = []
+
+        header_row = [Paragraph(f"<b>{limpar_texto_pdf(col)}</b>", style_cell) for col in df.columns]
+        formatted_data.append(header_row)
+
+        for _, row in df.iterrows():
+            formatted_row = [Paragraph(limpar_texto_pdf(str(item)), style_cell) for item in row]
+            formatted_data.append(formatted_row)
+
+        num_cols = len(df.columns)
+        available_width = doc.width
+
+        if num_cols > 1:
+            name_w = available_width * 0.18
+            other_w = (available_width - name_w) / (num_cols - 1)
+            col_widths = [name_w] + [other_w] * (num_cols - 1)
+        else:
+            col_widths = [available_width]
+
+        t = Table(formatted_data, colWidths=col_widths, repeatRows=1)
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+        ]))
+
+        elements.append(t)
+        elements.append(Spacer(1, 20))
+
     doc.build(elements)
     return buffer.getvalue()
 
-# ================== MINHA ESCALA ==================
 def exibir_minha_escala():
     st.title("📅 Minha Escala")
 
@@ -142,64 +142,133 @@ def exibir_minha_escala():
         return
 
     nomes_unicos = sorted({
-        nome for esc in escalas for p in esc.get("Escala", [])
+        nome for esc in escalas
+        for p in esc.get("Escala", [])
         for nome in normalizar_nomes(p.get("Nome"))
     })
 
-    nome_selecionado = st.selectbox("Selecione seu nome:", ["Selecione seu nome"] + nomes_unicos)
-    if nome_selecionado == "Selecione seu nome": return
+    nome_selecionado = st.selectbox(
+        "Selecione seu nome:",
+        ["Selecione seu nome"] + nomes_unicos
+    )
+
+    if nome_selecionado == "Selecione seu nome":
+        return
 
     escala_pessoal = []
+
     for esc in escalas:
-        participacoes = [p for p in esc.get("Escala", []) if nome_selecionado in normalizar_nomes(p.get("Nome"))]
+        participacoes = [
+            p for p in esc.get("Escala", [])
+            if nome_selecionado in normalizar_nomes(p.get("Nome"))
+        ]
+
         if participacoes:
-            funcoes = sorted({f for p in participacoes for f in p.get("Funcoes", [])})
+            funcoes = sorted({
+                f for p in participacoes for f in p.get("Funcoes", [])
+            })
+
             louvores_data = sorted(set(esc.get("louvores", [])))
+
             escala_pessoal.append({
                 "Data": esc.get("Data"),
                 "Tipo": esc.get("Tipo"),
                 "Funções": ", ".join(funcoes),
-                "Louvores": "\n".join([f"{l} ({louvor_para_tom.get(l, 'N/A')})" for l in louvores_data])
+                "Louvores": "\n".join([
+                    f"{l} ({louvor_para_tom.get(l, 'N/A')})"
+                    for l in louvores_data
+                ])
             })
 
     hoje = datetime.date.today()
-    escala_pessoal = [e for e in escala_pessoal if parse_date_str(e["Data"]) and parse_date_str(e["Data"]) >= hoje]
+
+    escala_pessoal = [
+        e for e in escala_pessoal
+        if parse_date_str(e["Data"]) and parse_date_str(e["Data"]) >= hoje
+    ]
 
     if not escala_pessoal:
         st.info("Nenhuma data futura encontrada.")
         return
 
     escala_pessoal.sort(key=lambda x: parse_date_str(x["Data"]))
-    
-    # Visualização na tela
+
+    # ===== TELA (SEM MUDAR NADA) =====
     for item in escala_pessoal:
         with st.expander(f"🗓️ {item['Data']} - {item['Tipo']}"):
             st.write(f"**Funções:** {item['Funções']}")
             st.write(f"**Louvores:** {item['Louvores']}")
 
-    # --- BOTÃO DOWNLOAD PDF (MINHA ESCALA) ---
+    # ================= PDF =================
     df_pessoal = pd.DataFrame(escala_pessoal)
-    pdf_data = gerar_pdf_escala(df_pessoal, titulo=f"Escala Pessoal - {nome_selecionado}")
+
+    # ===== BUSCAR ESCALA DA MÍDIA =====
+    escalas_midia = carregar_escala_midia() or []
+    escala_midia_pessoal = []
+
+    for esc in escalas_midia:
+        participacoes = [
+            p for p in esc.get("Escala", [])
+            if nome_selecionado in normalizar_nomes(p.get("Nome"))
+        ]
+
+        if participacoes:
+            funcoes = sorted({
+                f for p in participacoes for f in p.get("Funcoes", [])
+            })
+
+            escala_midia_pessoal.append({
+                "Data": esc.get("Data"),
+                "Tipo": esc.get("Tipo"),
+                "Funções": ", ".join(funcoes)
+            })
+
+    # filtrar datas futuras (igual louvor)
+    escala_midia_pessoal = [
+        e for e in escala_midia_pessoal
+        if parse_date_str(e["Data"]) and parse_date_str(e["Data"]) >= hoje
+    ]
+
+    escala_midia_pessoal.sort(key=lambda x: parse_date_str(x["Data"]))
+
+    # ===== MONTAR PDF =====
+    tabelas_pdf = [
+        {"df": df_pessoal, "titulo": f"Escala Pessoal - {nome_selecionado}"}
+    ]
+
+    # 🔥 ADICIONA MÍDIA SE EXISTIR
+    if escala_midia_pessoal:
+        df_midia = pd.DataFrame(escala_midia_pessoal)
+
+        tabelas_pdf.append({
+            "df": df_midia,
+            "titulo": f"Escala de Mídia - {nome_selecionado}"
+        })
+
+    pdf_data = gerar_pdf_multiplas_tabelas(tabelas_pdf)
+
     st.download_button(
         label="📥 Baixar Minha Escala em PDF",
         data=pdf_data,
         file_name=f"escala_{nome_selecionado.replace(' ', '_')}.pdf",
         mime="application/pdf"
     )
-
 # ================== ESCALA COMPLETA ==================
 def exibir_escala_completa_integrantes():
     st.title("📋 Escala Completa")
+
     escalas = load_with_spinner(carregar_escala, label="Carregando escalas...")
-    if not escalas: return
+    midia_escalas = load_with_spinner(carregar_escala_midia, label="Carregando mídia...")
+
+    if not escalas:
+        return
 
     for esc in escalas:
         esc["Data_obj"] = parse_date_str(esc.get("Data"))
 
     meses = sorted({e["Data_obj"].strftime("%m/%Y") for e in escalas if e["Data_obj"]})
     mes_atual = datetime.date.today().strftime("%m/%Y")
-    index_padrao = meses.index(mes_atual) if mes_atual in meses else 0
-    mes = st.selectbox("Selecione o mês:", meses, index=index_padrao)
+    mes = st.selectbox("Selecione o mês:", meses, index=meses.index(mes_atual) if mes_atual in meses else 0)
 
     escalas_mes = [e for e in escalas if e["Data_obj"] and e["Data_obj"].strftime("%m/%Y") == mes]
     escalas_mes.sort(key=lambda e: e["Data_obj"])
@@ -216,30 +285,67 @@ def exibir_escala_completa_integrantes():
                 mapa[nome] = f"{mapa.get(nome, '')}, {funcoes}".strip(", ")
         df[col] = df["Nome"].map(mapa).fillna("")
 
-    # Aplicar emojis para visualização na tela
     df_visual = df.copy()
+
     for col in df_visual.columns[1:]:
         df_visual[col] = df_visual[col].apply(
             lambda x: ", ".join(FUNCAO_EMOJI_MAP.get(f.strip(), f.strip()) for f in x.split(",") if f.strip())
         )
 
-    st.dataframe(df_visual, use_container_width=True, hide_index=True,
-                 column_config={"Nome": st.column_config.TextColumn("Nome", pinned=True)})
+    st.dataframe(df_visual, use_container_width=True, hide_index=True)
 
-    # --- BOTÃO DOWNLOAD PDF (ESCALA COMPLETA) ---
-    # Geramos o PDF a partir do DF original (sem emojis se preferir algo mais limpo, ou df_visual se quiser emojis)
-    pdf_completo = gerar_pdf_escala(df_visual, titulo=f"Escala Geral - {mes}")
+    # ===== MIDIA =====
+    df_midia = None
+
+    if midia_escalas:
+        for esc in midia_escalas:
+            esc["Data_obj"] = parse_date_str(esc.get("Data"))
+
+        midia_mes = [e for e in midia_escalas if e["Data_obj"] and e["Data_obj"].strftime("%m/%Y") == mes]
+
+        if midia_mes:
+            nomes_midia = sorted({
+                n for e in midia_mes
+                for p in e.get("Escala", [])
+                for n in normalizar_nomes(p.get("Nome"))
+            })
+
+            df_midia = pd.DataFrame({"Nome": nomes_midia})
+
+            for e in midia_mes:
+                col = f"{e['Data']} - {e['Tipo']}"
+                mapa = {}
+
+                for p in e.get("Escala", []):
+                    funcoes = ", ".join(p.get("Funcoes", []))
+                    for nome in normalizar_nomes(p.get("Nome")):
+                        mapa[nome] = f"{mapa.get(nome, '')}, {funcoes}".strip(", ")
+
+                df_midia[col] = df_midia["Nome"].map(mapa).fillna("")
+
+    # ===== PDF =====
+    tabelas = [
+        {"df": df_visual, "titulo": f"Escala de Louvor - {mes}"}
+    ]
+
+    if df_midia is not None:
+        tabelas.append({"df": df_midia, "titulo": f"Escala de Mídia - {mes}"})
+
+    pdf = gerar_pdf_multiplas_tabelas(tabelas)
+
     st.download_button(
-        label="📥 Baixar Escala Mensal em PDF",
-        data=pdf_completo,
-        file_name=f"escala_geral_{mes.replace('/', '_')}.pdf",
+        "📥 Baixar Escala Mensal em PDF",
+        data=pdf,
+        file_name=f"escala_completa_{mes.replace('/', '_')}.pdf",
         mime="application/pdf"
     )
 
 # ================== INTERFACE ==================
 def interface_integrantes():
     tab1, tab2 = st.tabs(["Minha Escala", "Escala Completa"])
+
     with tab1:
-        exibir_minha_escala()
+        exibir_minha_escala()   # 🔥 VOLTA AQUI
+
     with tab2:
         exibir_escala_completa_integrantes()
