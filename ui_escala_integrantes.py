@@ -257,25 +257,42 @@ def exibir_minha_escala():
 def exibir_escala_completa_integrantes():
     st.title("📋 Escala Completa")
 
+    # ===== CARREGAR ESCALAS DE LOUVOR =====
     escalas = load_with_spinner(carregar_escala, label="Carregando escalas...")
-    midia_escalas = load_with_spinner(carregar_escala_midia, label="Carregando mídia...")
 
     if not escalas:
+        st.info("Nenhuma escala cadastrada.")
         return
 
+    # Adicionar campo de data como objeto datetime
     for esc in escalas:
         esc["Data_obj"] = parse_date_str(esc.get("Data"))
 
+    # Seleção do mês
     meses = sorted({e["Data_obj"].strftime("%m/%Y") for e in escalas if e["Data_obj"]})
     mes_atual = datetime.date.today().strftime("%m/%Y")
-    mes = st.selectbox("Selecione o mês:", meses, index=meses.index(mes_atual) if mes_atual in meses else 0)
+    mes = st.selectbox(
+        "Selecione o mês:",
+        meses,
+        index=meses.index(mes_atual) if mes_atual in meses else 0
+    )
 
-    escalas_mes = [e for e in escalas if e["Data_obj"] and e["Data_obj"].strftime("%m/%Y") == mes]
+    # Filtrar escalas do mês selecionado
+    escalas_mes = [
+        e for e in escalas
+        if e["Data_obj"] and e["Data_obj"].strftime("%m/%Y") == mes
+    ]
     escalas_mes.sort(key=lambda e: e["Data_obj"])
 
-    nomes = sorted({n for e in escalas_mes for p in e.get("Escala", []) for n in normalizar_nomes(p.get("Nome"))})
+    # Construir DataFrame com nomes
+    nomes = sorted({
+        n for e in escalas_mes
+        for p in e.get("Escala", [])
+        for n in normalizar_nomes(p.get("Nome"))
+    })
     df = pd.DataFrame({"Nome": nomes})
 
+    # Adicionar colunas de datas + tipo com funções
     for e in escalas_mes:
         col = f"{e['Data']} - {e['Tipo']}"
         mapa = {}
@@ -285,58 +302,26 @@ def exibir_escala_completa_integrantes():
                 mapa[nome] = f"{mapa.get(nome, '')}, {funcoes}".strip(", ")
         df[col] = df["Nome"].map(mapa).fillna("")
 
+    # Aplicar emojis nas funções
     df_visual = df.copy()
-
     for col in df_visual.columns[1:]:
         df_visual[col] = df_visual[col].apply(
             lambda x: ", ".join(FUNCAO_EMOJI_MAP.get(f.strip(), f.strip()) for f in x.split(",") if f.strip())
         )
 
-    st.dataframe(df_visual, use_container_width=True, hide_index=True)
+    # 🔹 FIXAR NOMES NA TABELA
+    df_visual = df_visual.set_index("Nome")
+    st.dataframe(df_visual, use_container_width=True)
 
-    # ===== MIDIA =====
-    df_midia = None
-
-    if midia_escalas:
-        for esc in midia_escalas:
-            esc["Data_obj"] = parse_date_str(esc.get("Data"))
-
-        midia_mes = [e for e in midia_escalas if e["Data_obj"] and e["Data_obj"].strftime("%m/%Y") == mes]
-
-        if midia_mes:
-            nomes_midia = sorted({
-                n for e in midia_mes
-                for p in e.get("Escala", [])
-                for n in normalizar_nomes(p.get("Nome"))
-            })
-
-            df_midia = pd.DataFrame({"Nome": nomes_midia})
-
-            for e in midia_mes:
-                col = f"{e['Data']} - {e['Tipo']}"
-                mapa = {}
-
-                for p in e.get("Escala", []):
-                    funcoes = ", ".join(p.get("Funcoes", []))
-                    for nome in normalizar_nomes(p.get("Nome")):
-                        mapa[nome] = f"{mapa.get(nome, '')}, {funcoes}".strip(", ")
-
-                df_midia[col] = df_midia["Nome"].map(mapa).fillna("")
-
-    # ===== PDF =====
-    tabelas = [
-        {"df": df_visual, "titulo": f"Escala de Louvor - {mes}"}
-    ]
-
-    if df_midia is not None:
-        tabelas.append({"df": df_midia, "titulo": f"Escala de Mídia - {mes}"})
-
-    pdf = gerar_pdf_multiplas_tabelas(tabelas)
+    # ===== GERAR PDF =====
+    pdf = gerar_pdf_multiplas_tabelas([
+        {"df": df_visual, "titulo": f"Escala Completa de Louvor - {mes}"}
+    ])
 
     st.download_button(
-        "📥 Baixar Escala Mensal em PDF",
+        "📥 Baixar Escala Completa de Louvor (PDF)",
         data=pdf,
-        file_name=f"escala_completa_{mes.replace('/', '_')}.pdf",
+        file_name=f"escala_louvor_{mes.replace('/', '_')}.pdf",
         mime="application/pdf"
     )
 
