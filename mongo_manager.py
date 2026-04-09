@@ -6,7 +6,7 @@ import streamlit as st
 # ==================== CONEXÃO COM MONGODB =====================
 try:
     mongo_uri = st.secrets["MONGODB_URI"]
-    db_name = st.secrets["PORTAL_LOUVOR_DEV"]
+    db_name = st.secrets["PORTAL_LOUVOR"]
 except Exception:
     print("ERRO CRÍTICO: MONGODB_URI ou PORTAL_LOUVOR não encontrados no secrets", file=sys.stderr)
     sys.exit(1)
