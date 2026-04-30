@@ -91,6 +91,11 @@ def disponibilidade_midia(nome):
 
     for d in datas:
         data_str = d["Data"]
+        tipo = d.get("Tipo", "")
+
+        
+        label = f"{data_str} - {tipo}" if tipo else data_str
+     
 
         bloqueado = any(
             nome in normalizar_nomes(p.get("Nome"))
@@ -106,14 +111,14 @@ def disponibilidade_midia(nome):
         disponivel = True if not registro else registro.get("Disponivel", True)
 
         if ja_preenchido:
-            st.checkbox(f"{data_str}", value=disponivel, disabled=True)
+            st.checkbox(label, value=disponivel, disabled=True)
             continue
 
         if bloqueado:
-            st.checkbox(f"{data_str} (Louvor)", value=True, disabled=True)
+            st.checkbox(f"{label} (Louvor)", value=True, disabled=True)
             alteracoes.append((data_str, False))
         else:
-            marcado = st.checkbox(f"{data_str}", value=disponivel)
+            marcado = st.checkbox(label, value=disponivel)
             alteracoes.append((data_str, marcado))
 
     if not ja_preenchido:
