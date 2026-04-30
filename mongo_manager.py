@@ -373,3 +373,11 @@ def carregar_integrantes_midia():
 
 def excluir_integrante_midia(nome):
     db["midia_funcoes"].delete_one({"nome": nome})
+    
+def carregar_disponibilidade_midia_por_data(data_str):
+    return list(
+        db["midia_disponibilidades"].find(
+            {"Data": data_str, "Disponivel": True},
+            {"_id": 0}
+        )
+    )

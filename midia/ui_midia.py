@@ -5,7 +5,8 @@ from mongo_manager import (
     carregar_integrantes_midia, excluir_integrante_midia, salvar_data_midia, carregar_datas_midia, excluir_data_midia,
     salvar_escala_midia,
     carregar_funcoes_midia,
-    criar_tarefa_midia, carregar_tarefas_midia, atualizar_status_tarefa_midia, salvar_integrante_midia
+    criar_tarefa_midia, carregar_tarefas_midia, atualizar_status_tarefa_midia, salvar_integrante_midia,
+    carregar_disponibilidade_midia_por_data  # 🔥 ADICIONAR ISSO
 )
 from session_manager import login_admin_midia, check_login, logout_admin
 from midia.ui_midia_integrantes import interface_midia_integrantes
@@ -140,13 +141,33 @@ def criar_escala():
 
     col1, col2 = st.columns(2)
 
+    # 🔥 Cria coluna combinada
+    df["Data_Tipo"] = df["Data"] + " - " + df["Tipo"]
+
     with col1:
-        data = st.selectbox("Escolha a data", df["Data"])
+        data_tipo = st.selectbox("Escolha a data", df["Data_Tipo"])
 
-    with col2:
-        tipo = df[df["Data"] == data]["Tipo"].values[0]
+    # 🔥 Recupera data e tipo separados
+    linha = df[df["Data_Tipo"] == data_tipo].iloc[0]
 
-    _, funcoes, integrantes = carregar_funcoes_midia()
+    data = linha["Data"]
+    tipo = linha["Tipo"]
+
+    _, funcoes, _ = carregar_funcoes_midia()
+
+    # 🔥 BUSCAR SOMENTE DISPONÍVEIS NA DATA
+    disponibilidade = carregar_disponibilidade_midia_por_data(data)
+
+    if not disponibilidade:
+        st.warning("Ninguém informou disponibilidade para essa data")
+        return
+
+    # 🔥 GARANTE QUE NÃO QUEBRE POR Nome/nome
+    integrantes = [
+        d.get("Nome") or d.get("nome")
+        for d in disponibilidade
+        if d.get("Nome") or d.get("nome")
+    ]
 
     st.markdown("### 🎯 Distribuir funções")
 
@@ -172,7 +193,6 @@ def criar_escala():
 
         salvar_escala_midia(data, tipo, escala_lista)
         st.success("Escala salva com sucesso!")
-
 
 # ================= INTEGRANTES =================
 def gerenciar_integrantes():

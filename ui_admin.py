@@ -263,8 +263,16 @@ def interface_escalar_funcoes():
         st.warning("Todas as datas futuras cadastradas já foram escaladas (ou não há datas futuras).")
         return
 
-    data_escolhida = st.selectbox("Escolha a data para escalar:", datas_para_escalar)
-    tipo_culto = datas_df.loc[datas_df['Data'] == data_escolhida, 'Tipo'].values[0]
+    
+    df_datas = datas_df[datas_df['Data'].isin(datas_para_escalar)].copy()
+    df_datas["Data_Tipo"] = df_datas["Data"] + " - " + df_datas["Tipo"]
+
+    data_tipo = st.selectbox("Escolha a data para escalar:", df_datas["Data_Tipo"])
+
+    linha = df_datas[df_datas["Data_Tipo"] == data_tipo].iloc[0]
+
+    data_escolhida = linha["Data"]
+    tipo_culto = linha["Tipo"]
 
     # Status de disponibilidade
     preenchidos = set()
@@ -280,49 +288,41 @@ def interface_escalar_funcoes():
         st.success("✅ Todos os integrantes já preencheram a disponibilidade!")
     else:
         st.warning("⚠️ Ainda existem integrantes que não preencheram a disponibilidade.")
-        # --- Dentro de ui_admin.py, na função interface_escalar_funcoes() ---
 
-    if not faltando and len(integrantes) > 0:
-        st.success("✅ Todos já preencheram!")
-    else:
-        if not faltando and len(integrantes) > 0:
-            st.success("✅ Todos já preencheram!")
-        else:
-            with st.expander("📋 Status de Disponibilidade"):
+    with st.expander("📋 Status de Disponibilidade"):
 
-                texto_copia = "📊 STATUS DE DISPONIBILIDADE\n\n"
-                texto_copia += "✅ Disponibilidade Preenchida:\n" + ("\n".join([f"- {n}" for n in presentes]) if presentes else "Nenhum")
-                texto_copia += "\n\n❌ Falta Preencher Disponidade:\n" + ("\n".join([f"- {n}" for n in faltando]) if faltando else "Nenhum")
+        texto_copia = "📊 STATUS DE DISPONIBILIDADE\n\n"
+        texto_copia += "✅ Disponibilidade Preenchida:\n" + ("\n".join([f"- {n}" for n in presentes]) if presentes else "Nenhum")
+        texto_copia += "\n\n❌ Falta Preencher Disponidade:\n" + ("\n".join([f"- {n}" for n in faltando]) if faltando else "Nenhum")
 
-                # Botão copiar funcional
-                components.html(f"""
-                    <button onclick="navigator.clipboard.writeText(`{texto_copia}`)"
-                    style="
-                        background-color:#115a8a;
-                        color:white;
-                        padding:8px 12px;
-                        border:none;
-                        border-radius:6px;
-                        cursor:pointer;
-                        font-size:14px;
-                    ">
-                    📋 Copiar lista
-                    </button>
-                """, height=50)
+        components.html(f"""
+            <button onclick="navigator.clipboard.writeText(`{texto_copia}`)"
+            style="
+                background-color:#115a8a;
+                color:white;
+                padding:8px 12px;
+                border:none;
+                border-radius:6px;
+                cursor:pointer;
+                font-size:14px;
+            ">
+            📋 Copiar lista
+            </button>
+        """, height=50)
 
-                st.divider()
+        st.divider()
 
-                col1, col2 = st.columns(2)
+        col1, col2 = st.columns(2)
 
-                with col1:
-                    st.markdown("**Disponibilidade Preenchida**")
-                    for nome in presentes:
-                        st.write(f"✅ {nome}")
+        with col1:
+            st.markdown("**Disponibilidade Preenchida**")
+            for nome in presentes:
+                st.write(f"✅ {nome}")
 
-                with col2:
-                    st.markdown("**Falta Preencher Disponidade**")
-                    for nome in faltando:
-                        st.write(f"❌ {nome}")
+        with col2:
+            st.markdown("**Falta Preencher Disponidade**")
+            for nome in faltando:
+                st.write(f"❌ {nome}")
 
 
     # Escala por função
@@ -388,8 +388,13 @@ def interface_escalar_funcoes():
     # Pré-visualização
     if escala_escolhidos:
         st.subheader("📋 Pré-visualização da Escala do Dia")
-        for funcao, nome in escala_escolhidos.items():
-            st.write(f"{funcao}: {nome}")
+        for funcao, nomes in escala_escolhidos.items():
+            if nomes:
+                texto = ", ".join(nomes)
+            else:
+                texto = "—"  # ou "" se quiser totalmente vazio
+
+            st.write(f"{funcao}: {texto}")
 
         # Salvar escala
         if st.button("Salvar Escala"):
