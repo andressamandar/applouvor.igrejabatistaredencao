@@ -286,19 +286,19 @@ def carregar_disponibilidade_midia():
 
 
 # -------- ESCALA --------
-def salvar_escala_midia(data_str, tipo, escala_lista):
-    db["midia_escala"].replace_one(
-        {"Data": data_str},
+def salvar_escala_midia(data, tipo, escala_lista):
+
+    db["midia_escala"].update_one(
+        {"Data": data},
         {
-            "Data": data_str,
-            "Tipo": tipo,
-            "Escala": escala_lista
+            "$set": {
+                "Data": data,
+                "Tipo": tipo,
+                "Escala": escala_lista
+            }
         },
         upsert=True
     )
-
-def carregar_escala_midia():
-    return list(db["midia_escala"].find({}, {"_id": 0}))
 
 
 # -------- FUNÇÕES --------
@@ -349,27 +349,18 @@ def assumir_tarefa_midia(titulo, nome):
     )
     
 # ================= INTEGRANTES MIDIA =================
-
 def salvar_integrante_midia(nome, funcoes):
+
     db["midia_funcoes"].update_one(
         {"nome": nome},
-        {"$set": {
-            "nome": nome,   # 🔥 PADRÃO DEFINITIVO
-            "funcoes": funcoes
-        }},
+        {
+            "$set": {
+                "nome": nome,
+                "Funcoes": funcoes
+            }
+        },
         upsert=True
     )
-
-def carregar_integrantes_midia():
-    dados = list(db["midia_funcoes"].find({}, {"_id": 0}))
-
-    nomes = []
-    for i in dados:
-        nome = i.get("nome") or i.get("Nome")
-        if nome:
-            nomes.append(nome)
-
-    return sorted(nomes)
 
 def excluir_integrante_midia(nome):
     db["midia_funcoes"].delete_one({"nome": nome})
@@ -380,4 +371,43 @@ def carregar_disponibilidade_midia_por_data(data_str):
             {"Data": data_str, "Disponivel": True},
             {"_id": 0}
         )
+    )
+    
+    # ================= CARREGAR ESCALA =================
+def carregar_escala_midia():
+
+    escalas = list(
+        db["midia_escala"].find({}, {"_id": 0})
+    )
+
+    return escalas
+
+
+# ================= CARREGAR ESCALA POR DATA =================
+def carregar_escala_midia_por_data(data):
+
+    escala = db["midia_escala"].find_one(
+        {"Data": data},
+        {"_id": 0}
+    )
+
+    if escala:
+        return escala.get("Escala", [])
+
+    return []
+
+# ================= EDITAR TAREFA =================
+def editar_tarefa_midia(titulo_antigo, novo_titulo):
+
+    db["midia_tarefas"].update_one(
+        {"titulo": titulo_antigo},
+        {"$set": {"titulo": novo_titulo}}
+    )
+
+
+# ================= EXCLUIR TAREFA =================
+def excluir_tarefa_midia(titulo):
+
+    db["midia_tarefas"].delete_one(
+        {"titulo": titulo}
     )
