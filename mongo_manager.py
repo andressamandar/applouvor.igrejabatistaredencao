@@ -92,13 +92,26 @@ def carregar_disponibilidade():
 
 # ==================== ESCALA =====================
 def salvar_escala(data_str, tipo, escala_lista):
+
+    escala_existente = escala_col.find_one(
+        {"Data": data_str}
+    )
+
+    louvores_existentes = []
+
+    if escala_existente:
+        louvores_existentes = escala_existente.get(
+            "louvores",
+            []
+        )
+
     escala_col.replace_one(
         {"Data": data_str},
         {
             "Data": data_str,
             "Tipo": tipo,
             "Escala": escala_lista,
-            "louvores": []
+            "louvores": louvores_existentes
         },
         upsert=True
     )

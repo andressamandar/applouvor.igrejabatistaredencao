@@ -399,18 +399,27 @@ def interface_escalar_funcoes():
         # Salvar escala
         if st.button("Salvar Escala"):
             escala_temp = []
-            for funcao, nome in escala_escolhidos.items():
-                item = next((p for p in escala_temp if p["Nome"] == nome), None)
-                if item:
-                    if funcao not in item["Funcoes"]:
-                        item["Funcoes"].append(funcao)
-                else:
-                    escala_temp.append({"Nome": nome, "Funcoes": [funcao]})
 
-            salvar_escala(data_escolhida, tipo_culto, escala_temp)
-            
-            st.session_state.success_msg_admin = f"✅ Escala de {data_escolhida} salva com sucesso!"
-            st.rerun()
+            for funcao, nomes in escala_escolhidos.items():
+
+                for nome in nomes:
+
+                    item = next(
+                        (p for p in escala_temp if p["Nome"] == nome),
+                        None
+                    )
+
+                    if item:
+
+                        if funcao not in item["Funcoes"]:
+                            item["Funcoes"].append(funcao)
+
+                    else:
+
+                        escala_temp.append({
+                            "Nome": nome,
+                            "Funcoes": [funcao]
+                        })
 
 
 # ------------------ Editar Escala ------------------
