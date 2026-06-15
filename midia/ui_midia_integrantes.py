@@ -404,12 +404,45 @@ def tarefas_integrante(nome):
             col1, col2 = st.columns([4, 1])
 
             with col1:
-                st.write(f"**{titulo}**")
+                with st.expander(f"📋 {titulo}"):
 
-            with col2:
-                if st.button("Assumir", key=f"{titulo}_assumir"):
-                    assumir_tarefa_midia(titulo, nome)
-                    st.rerun()
+                    st.write(
+                        f"**Ministério:** {t.get('ministerio','')}"
+                    )
+
+                    st.write(
+                        f"**Solicitante:** {t.get('solicitante','')}"
+                    )
+
+                    st.write(
+                        f"**Descrição:** {t.get('descricao','')}"
+                    )
+
+                    st.write(
+                        f"**Sugestão:** {t.get('sugestao','')}"
+                    )
+
+                    st.write(
+                        f"**Data do Evento:** {t.get('data_evento','')}"
+                    )
+
+                    st.write(
+                        f"**Horário:** {t.get('horario','')}"
+                    )
+
+                    st.write(
+                        f"**Data de Entrega:** {t.get('data_entrega','')}"
+                    )
+
+                    if st.button(
+                        "Assumir",
+                        key=f"{titulo}_assumir"
+                    ):
+                        assumir_tarefa_midia(
+                            titulo,
+                            nome
+                        )
+                        st.rerun()
 
     # ================= EM ANDAMENTO =================
     st.markdown("### Tarefas em andamento")

@@ -3,6 +3,11 @@ import os
 import pandas as pd
 
 from mongo_manager import (
+    criar_solicitacao_arte,
+    carregar_solicitacoes_arte,
+    aprovar_solicitacao_arte,
+    rejeitar_solicitacao_arte,
+    converter_solicitacao_em_tarefa,
     carregar_escala_midia,
     carregar_escala_midia_por_data,
     carregar_integrantes_midia,
@@ -19,6 +24,7 @@ from mongo_manager import (
     atualizar_status_tarefa_midia,
     salvar_integrante_midia,
     carregar_disponibilidade_midia_por_data
+    
 )
 
 from session_manager import (
@@ -40,7 +46,7 @@ def interface_midia():
 
     menu = st.sidebar.radio(
         "Ir para:",
-        ["Integrantes", "Liderança"]
+        ["Integrantes", "Liderança", "Solicitações"]
     )
 
     st.markdown(
@@ -53,6 +59,9 @@ def interface_midia():
 
     elif menu == "Liderança":
         interface_admin_midia()
+
+    elif menu == "Solicitações":
+        interface_solicitacoes_arte()
 
 
 # ================= ADMIN =================
@@ -90,15 +99,16 @@ def interface_admin_midia():
             st.rerun()
 
     sub = st.selectbox(
-        "Selecione uma opção:",
-        [
-            "📅 Gerenciar datas",
-            "🗓️ Criar escala",
-            "👥 Gerenciar integrantes",
-            "➕ Criar tarefas",
-            "📋 Quadro de tarefas"
-        ]
-    )
+    "Selecione uma opção:",
+    [
+        "📅 Gerenciar datas",
+        "🗓️ Criar escala",
+        "👥 Gerenciar integrantes",
+        "🎨 Aprovar Solicitações",
+        "➕ Criar tarefas",
+        "📋 Quadro de tarefas"
+    ]
+)
 
     if sub == "📅 Gerenciar datas":
         gerenciar_datas()
@@ -114,6 +124,9 @@ def interface_admin_midia():
 
     elif sub == "📋 Quadro de tarefas":
         kanban()
+        
+    elif sub == "🎨 Aprovar Solicitações":
+        aprovacao_solicitacoes()
 
 
 # ================= DATAS =================
@@ -602,3 +615,332 @@ def kanban():
                             excluir_tarefa_midia(titulo)
 
                             st.rerun()
+                            
+# ================= Solicitações =================
+def interface_solicitacoes_arte():
+    
+    if st.session_state.get("arte_enviada"):
+        st.success("✅ Solicitação enviada com sucesso!")
+
+    st.subheader("🎨 Solicitações")
+
+    tab1, tab2 = st.tabs([
+        "➕ Nova Solicitação",
+        "📋 Solicitações"
+    ])
+
+    # ================= NOVA SOLICITAÇÃO =================
+    with tab1:
+        
+        with st.expander("ℹ️ Informações e dúvidas frequentes!", expanded=False):
+
+            st.markdown("""
+            ℹ️ Informações Importantes
+
+            Este espaço foi criado para que os líderes dos ministérios possam solicitar artes ao Ministério de Mídia, 
+            seja para exibição na projeção durante os cultos e eventos, 
+            seja para divulgação nas redes sociais da igreja.
+            Nosso objetivo é organizar as demandas, otimizar o fluxo de trabalho da equipe e manter um padrão visual em todas as artes produzidas.
+
+            Após realizar sua solicitação, pedimos que envie uma mensagem para a liderança da mídia via WhatsApp informando que o pedido foi registrado.
+
+            Importante: este formulário não substitui a comunicação com a liderança. Caso seja necessário realizar ajustes, complementações ou esclarecer dúvidas sobre a solicitação, você poderá entrar em contato normalmente pelo WhatsApp.
+
+            📞 Contato da Liderança de Mídia
+
+            • Beatriz Moraes – (11) 94261-4410
+            • Andressa Mandar – (11) 94315-6150
+
+            ❓ Dúvidas Frequentes
+
+            Com quantos dias de antecedência devo solicitar uma arte?
+
+            Resposta: Recomendamos que as solicitações sejam realizadas com pelo menos 30 dias de antecedência. No entanto, entendemos que podem surgir situações excepcionais. Nesses casos, faça a solicitação normalmente e entre em contato com a liderança da mídia pelo WhatsApp para informar a urgência.
+
+            Quem pode solicitar artes?
+
+            Resposta: As solicitações devem ser realizadas pelos líderes dos ministérios da igreja.
+
+            As solicitações são apenas para eventos?
+
+            Resposta: Não. Além de artes para eventos, você também pode solicitar materiais para avisos, comunicados, campanhas, projeção, redes sociais e outras necessidades relacionadas à comunicação visual da igreja.
+
+            """)
+
+        with st.form("form_solicitacao"):
+            
+            ministerio = st.text_input(
+                "Ministério"
+            )
+
+            titulo = st.text_input(
+                "Título da Arte"
+            )
+
+            descricao = st.text_area(
+                "Descrição(informações que deseja na arte)"
+            )
+            
+            sugestao = st.text_area(
+                "Sugestão (Caso tenha já tenha uma ideia de como quer a arte, exemplo: imagem de uma bíblia, imagem de uma cruz...)"
+            )
+
+            solicitante = st.text_input(
+                "Solicitante(Nome e Telefone)"
+            )
+
+            data_evento = st.date_input(
+                "Data do Evento"
+            )
+            
+            horario = st.text_input(
+                "Horário do Evento"
+            )
+            
+            data_entrega = st.date_input(
+                "Data de Entrega"
+            )
+
+            enviar = st.form_submit_button(
+                "Enviar Solicitação"
+            )
+
+            if enviar:
+
+                if not titulo:
+                    st.warning(
+                        "Informe um título"
+                    )
+                    return
+
+                criar_solicitacao_arte(
+                    ministerio,
+                    titulo,
+                    descricao,
+                    sugestao,
+                    solicitante,
+                    data_evento.strftime("%d/%m/%Y"),
+                    horario,
+                    data_entrega.strftime("%d/%m/%Y")
+                )
+
+                st.session_state["arte_enviada"] = True
+                st.rerun()
+                
+                st.session_state["titulo_arte"] = ""
+                st.session_state["descricao_arte"] = ""
+                st.session_state["solicitante_arte"] = ""
+                st.session_state["observacoes_arte"] = ""
+
+    # ================= LISTAGEM =================
+    with tab2:
+
+        solicitacoes = carregar_solicitacoes_arte()
+
+        if not solicitacoes:
+            st.info(
+                "Nenhuma solicitação cadastrada."
+            )
+            return
+
+        for s in solicitacoes:
+
+            titulo = s.get("titulo")
+            status = s.get("status")
+
+            with st.expander(
+                f"{titulo} - {status}"
+            ):
+                st.write(
+                    f"**Qual ministério?:** {s.get('ministerio','')}"
+                )
+
+                st.write(
+                    f"**Solicitante:** {s.get('solicitante','')}"
+                )
+                
+                st.write(
+                    f"**Descrição(coloque informações que deseja na arte):** {s.get('descricao','')}"
+                )
+                
+                st.write(
+                    f"**Nos informe se tem alguma ideia ou sugestão para a arte:** {s.get('sugestao','')}"
+                )
+
+                st.write(
+                    f"**Data do Evento:** {s.get('data_evento','')}"
+                )
+                
+                st.write(
+                    f"**Horário do Evento:** {s.get('horario','')}"
+                )
+
+                
+                st.write(
+                    f"**Entregar arte até qual data?:** {s.get('data_entrega','')}"
+                )
+
+                # ===== APROVAÇÃO =====
+                if status == "Pendente":
+
+                    col1, col2 = st.columns(2)
+
+
+                # ===== CONVERTER =====
+                elif status == "Aprovado":
+
+                    if st.button(
+                        "📋 Converter em Tarefa",
+                        key=f"converter_{titulo}"
+                    ):
+
+                        converter_solicitacao_em_tarefa(
+                            titulo
+                        )
+
+                        st.success(
+                            "✅ Convertida para o Kanban!"
+                        )
+
+                        st.rerun()
+
+                elif status == "Tarefa":
+
+                    st.success(
+                        "✔ Já convertida em tarefa."
+                    )
+
+                elif status == "Rejeitado":
+
+                    st.error(
+                        "❌ Solicitação rejeitada."
+                    )
+                    
+                    
+def aprovacao_solicitacoes():
+
+    st.subheader("🎨 Aprovação de Solicitações")
+
+    solicitacoes = carregar_solicitacoes_arte()
+
+    if not solicitacoes:
+        st.info("Nenhuma solicitação encontrada.")
+        return
+
+    for s in solicitacoes:
+
+        titulo = s.get("titulo", "")
+        status = s.get("status", "")
+
+        with st.expander(
+            f"{titulo} - {status}"
+        ):
+
+            st.write(
+                f"**Ministério:** {s.get('ministerio','')}"
+            )
+
+            st.write(
+                f"**Título da Arte:** {titulo}"
+            )
+
+            st.write(
+                f"**Solicitante:** {s.get('solicitante','')}"
+            )
+
+            st.write(
+                f"**Descrição:** {s.get('descricao','')}"
+            )
+
+            st.write(
+                f"**Sugestão para a arte:** {s.get('sugestao','')}"
+            )
+
+            st.write(
+                f"**Data do Evento:** {s.get('data_evento','')}"
+            )
+
+            st.write(
+                f"**Horário do Evento:** {s.get('horario','')}"
+            )
+
+            st.write(
+                f"**Data de Entrega:** {s.get('data_entrega','')}"
+            )
+
+            st.write(
+                f"**Status:** {status}"
+            )
+
+            st.divider()
+
+            # ================= PENDENTE =================
+            if status == "Pendente":
+
+                col1, col2 = st.columns(2)
+
+                with col1:
+
+                    if st.button(
+                        "✅ Aprovar",
+                        key=f"aprovar_{titulo}"
+                    ):
+
+                        aprovar_solicitacao_arte(
+                            titulo
+                        )
+
+                        st.success(
+                            "Solicitação aprovada!"
+                        )
+
+                        st.rerun()
+
+                with col2:
+
+                    if st.button(
+                        "❌ Reprovar",
+                        key=f"reprovar_{titulo}"
+                    ):
+
+                        rejeitar_solicitacao_arte(
+                            titulo
+                        )
+
+                        st.success(
+                            "Solicitação reprovada!"
+                        )
+
+                        st.rerun()
+
+            # ================= APROVADO =================
+            elif status == "Aprovado":
+
+                if st.button(
+                    "📋 Converter em tarefa",
+                    key=f"converter_{titulo}"
+                ):
+
+                    converter_solicitacao_em_tarefa(
+                        titulo
+                    )
+
+                    st.success(
+                        "Convertida para o Kanban!"
+                    )
+
+                    st.rerun()
+
+            # ================= Tarefa =================
+            elif status == "Tarefa":
+
+                st.success(
+                    "✔ Solicitação já convertida em tarefa."
+                )
+
+            # ================= REJEITADO =================
+            elif status == "Rejeitado":
+
+                st.error(
+                    "❌ Solicitação rejeitada."
+                )

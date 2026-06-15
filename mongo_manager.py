@@ -424,3 +424,76 @@ def excluir_tarefa_midia(titulo):
     db["midia_tarefas"].delete_one(
         {"titulo": titulo}
     )
+    
+# ================= SOLICITAÇÕES DE ARTE =================
+
+def criar_solicitacao_arte(
+    ministerio,
+    titulo,
+    descricao,
+    sugestao,
+    solicitante,
+    data_evento,
+    horario,
+    data_entrega
+):
+
+    db["midia_solicitacoes"].insert_one({
+        "ministerio": ministerio,
+        "titulo": titulo,
+        "descricao": descricao,
+        "sugestao": sugestao,
+        "solicitante": solicitante,
+        "data_evento": data_evento,
+        "horario": horario,
+        "data_entrega": data_entrega,
+        "status": "Pendente"
+    })
+
+
+def carregar_solicitacoes_arte():
+    return list(
+        db["midia_solicitacoes"].find({}, {"_id": 0})
+    )
+
+
+def aprovar_solicitacao_arte(titulo):
+    db["midia_solicitacoes"].update_one(
+        {"titulo": titulo},
+        {"$set": {"status": "Aprovado"}}
+    )
+
+
+def rejeitar_solicitacao_arte(titulo):
+    db["midia_solicitacoes"].update_one(
+        {"titulo": titulo},
+        {"$set": {"status": "Rejeitado"}}
+    )
+
+
+def converter_solicitacao_em_tarefa(titulo):
+
+    solicitacao = db["midia_solicitacoes"].find_one(
+        {"titulo": titulo}
+    )
+
+    if not solicitacao:
+        return
+
+    db["midia_tarefas"].insert_one({
+        "titulo": solicitacao.get("titulo", ""),
+        "ministerio": solicitacao.get("ministerio", ""),
+        "descricao": solicitacao.get("descricao", ""),
+        "sugestao": solicitacao.get("sugestao", ""),
+        "solicitante": solicitacao.get("solicitante", ""),
+        "data_evento": solicitacao.get("data_evento", ""),
+        "horario": solicitacao.get("horario", ""),
+        "data_entrega": solicitacao.get("data_entrega", ""),
+        "responsavel": None,
+        "status": "A Fazer"
+    })
+
+    db["midia_solicitacoes"].update_one(
+        {"titulo": titulo},
+        {"$set": {"status": "Convertido"}}
+    )
