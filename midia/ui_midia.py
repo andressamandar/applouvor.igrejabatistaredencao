@@ -618,9 +618,10 @@ def kanban():
                             
 # ================= Solicitações =================
 def interface_solicitacoes_arte():
-    
-    if st.session_state.get("arte_enviada"):
-        st.success("✅ Solicitação enviada com sucesso!")
+
+    # ================= CONTROLE FORMULÁRIO =================
+    if "mostrar_form_arte" not in st.session_state:
+        st.session_state["mostrar_form_arte"] = True
 
     st.subheader("🎨 Solicitações")
 
@@ -631,126 +632,152 @@ def interface_solicitacoes_arte():
 
     # ================= NOVA SOLICITAÇÃO =================
     with tab1:
-        
-        with st.expander("ℹ️ Informações e dúvidas frequentes!", expanded=False):
 
-            st.markdown("""
-            ℹ️ Informações Importantes
+        # Após envio
+        if st.session_state.get("arte_enviada"):
 
-            Este espaço foi criado para que os líderes dos ministérios possam solicitar artes ao Ministério de Mídia, 
-            seja para exibição na projeção durante os cultos e eventos, 
-            seja para divulgação nas redes sociais da igreja.
-            Nosso objetivo é organizar as demandas, otimizar o fluxo de trabalho da equipe e manter um padrão visual em todas as artes produzidas.
+            st.success("✅ Solicitação enviada com sucesso!")
 
-            Após realizar sua solicitação, pedimos que envie uma mensagem para a liderança da mídia via WhatsApp informando que o pedido foi registrado.
-
-            Importante: este formulário não substitui a comunicação com a liderança. Caso seja necessário realizar ajustes, complementações ou esclarecer dúvidas sobre a solicitação, você poderá entrar em contato normalmente pelo WhatsApp.
-
-            📞 Contato da Liderança de Mídia
-
-            • Beatriz Moraes – (11) 94261-4410
-            • Andressa Mandar – (11) 94315-6150
-
-            ❓ Dúvidas Frequentes
-
-            Com quantos dias de antecedência devo solicitar uma arte?
-
-            Resposta: Recomendamos que as solicitações sejam realizadas com pelo menos 30 dias de antecedência. No entanto, entendemos que podem surgir situações excepcionais. Nesses casos, faça a solicitação normalmente e entre em contato com a liderança da mídia pelo WhatsApp para informar a urgência.
-
-            Quem pode solicitar artes?
-
-            Resposta: As solicitações devem ser realizadas pelos líderes dos ministérios da igreja.
-
-            As solicitações são apenas para eventos?
-
-            Resposta: Não. Além de artes para eventos, você também pode solicitar materiais para avisos, comunicados, campanhas, projeção, redes sociais e outras necessidades relacionadas à comunicação visual da igreja.
-
-            """)
-
-        with st.form("form_solicitacao"):
-            
-            ministerio = st.text_input(
-                "Ministério"
+            st.info(
+                "Caso precise realizar outra solicitação, clique no botão abaixo."
             )
 
-            titulo = st.text_input(
-                "Título da Arte"
-            )
+            if st.button(
+                "➕ Nova Solicitação",
+                use_container_width=True
+            ):
+                st.session_state["arte_enviada"] = False
+                st.session_state["mostrar_form_arte"] = True
+                st.rerun()
 
-            descricao = st.text_area(
-                "Descrição(informações que deseja na arte)"
-            )
-            
-            sugestao = st.text_area(
-                "Sugestão (Caso tenha já tenha uma ideia de como quer a arte, exemplo: imagem de uma bíblia, imagem de uma cruz...)"
-            )
+        # Exibe formulário somente se permitido
+        if st.session_state["mostrar_form_arte"]:
 
-            solicitante = st.text_input(
-                "Solicitante(Nome e Telefone)"
-            )
+            with st.expander(
+                "ℹ️ Informações e dúvidas frequentes!",
+                expanded=False
+            ):
 
-            data_evento = st.date_input(
-                "Data do Evento"
-            )
-            
-            horario = st.text_input(
-                "Horário do Evento"
-            )
-            
-            data_entrega = st.date_input(
-                "Data de Entrega"
-            )
+                st.markdown("""
+                ℹ️ **Informações Importantes**
 
-            enviar = st.form_submit_button(
-                "Enviar Solicitação"
-            )
+                Este espaço foi criado para que os líderes dos ministérios possam solicitar artes ao Ministério de Mídia, seja para exibição na projeção durante os cultos e eventos ou para divulgação nas redes sociais da igreja.
 
-            if enviar:
+                Nosso objetivo é organizar as demandas, otimizar o fluxo de trabalho da equipe e manter um padrão visual em todas as artes produzidas.
 
-                if not titulo:
-                    st.warning(
-                        "Informe um título"
-                    )
-                    return
+                Após realizar sua solicitação, pedimos que envie uma mensagem para a liderança da mídia via WhatsApp informando que o pedido foi registrado.
 
-                criar_solicitacao_arte(
-                    ministerio,
-                    titulo,
-                    descricao,
-                    sugestao,
-                    solicitante,
-                    data_evento.strftime("%d/%m/%Y"),
-                    horario,
-                    data_entrega.strftime("%d/%m/%Y")
+                Este formulário não substitui a comunicação com a liderança. Caso seja necessário realizar ajustes ou esclarecer dúvidas, você poderá entrar em contato normalmente pelo WhatsApp.
+
+                📞 **Contato da Liderança de Mídia**
+
+                • Beatriz Moraes – (11) 94261-4410  
+                • Andressa Mandar – (11) 94315-6150
+
+                ### ❓ Dúvidas Frequentes
+
+                **Com quantos dias de antecedência devo solicitar uma arte?**
+
+                Recomendamos pelo menos 30 dias de antecedência. Porém, caso seja uma demanda urgente, faça a solicitação normalmente e avise a liderança pelo WhatsApp.
+
+                **Quem pode solicitar artes?**
+
+                Líderes dos ministérios da igreja.
+
+                **As solicitações são apenas para eventos?**
+
+                Não. Também podem ser solicitadas artes para avisos, comunicados, campanhas, redes sociais, projeção e demais necessidades de comunicação visual da igreja.
+                """)
+
+            with st.form("form_solicitacao"):
+
+                ministerio = st.text_input(
+                    "Ministério"
                 )
 
-                st.session_state["arte_enviada"] = True
-                st.rerun()
-                
-                st.session_state["titulo_arte"] = ""
-                st.session_state["descricao_arte"] = ""
-                st.session_state["solicitante_arte"] = ""
-                st.session_state["observacoes_arte"] = ""
+                titulo = st.text_input(
+                    "Título da Arte"
+                )
 
-    # ================= LISTAGEM =================
+                tamanhos = st.multiselect(
+                    "Tamanho da arte (selecione todos os formatos necessários)",
+                    [
+                        "Instagram - Story",
+                        "Instagram - Feed",
+                        "Projeção",
+                        "Todos"
+                    ]
+                )
+
+                descricao = st.text_area(
+                    "Descrição (informações que deseja na arte)"
+                )
+
+                sugestao = st.text_area(
+                    "Sugestão (caso já tenha alguma ideia para a arte)"
+                )
+
+                solicitante = st.text_input(
+                    "Solicitante (Nome e Telefone)"
+                )
+
+                data_evento = st.date_input(
+                    "Data do Evento"
+                )
+
+                horario = st.text_input(
+                    "Horário do Evento"
+                )
+
+                data_entrega = st.date_input(
+                    "Data de Entrega"
+                )
+
+                enviar = st.form_submit_button(
+                    "Enviar Solicitação"
+                )
+
+                if enviar:
+
+                    if not titulo:
+                        st.warning(
+                            "Informe um título"
+                        )
+                        return
+
+                    criar_solicitacao_arte(
+                        ministerio,
+                        titulo,
+                        tamanhos,
+                        descricao,
+                        sugestao,
+                        solicitante,
+                        data_evento.strftime("%d/%m/%Y"),
+                        horario,
+                        data_entrega.strftime("%d/%m/%Y")
+                    )
+
+                    st.session_state["arte_enviada"] = True
+                    st.session_state["mostrar_form_arte"] = False
+
+                    st.rerun()
+                    
+                        # ================= LISTAGEM =================
     with tab2:
 
         solicitacoes = carregar_solicitacoes_arte()
 
         if not solicitacoes:
-            st.info(
-                "Nenhuma solicitação cadastrada."
-            )
+            st.info("Nenhuma solicitação cadastrada.")
             return
 
         for s in solicitacoes:
 
-            titulo = s.get("titulo")
-            status = s.get("status")
+            titulo = s.get("titulo", "")
+            status = s.get("status", "")
 
-            with st.expander(
-                f"{titulo} - {status}"
-            ):
+            with st.expander(f"{titulo} - {status}"):
+
                 st.write(
                     f"**Qual ministério?:** {s.get('ministerio','')}"
                 )
@@ -758,64 +785,42 @@ def interface_solicitacoes_arte():
                 st.write(
                     f"**Solicitante:** {s.get('solicitante','')}"
                 )
-                
+
                 st.write(
-                    f"**Descrição(coloque informações que deseja na arte):** {s.get('descricao','')}"
+                    f"**Formatos solicitados:** {', '.join(s.get('tamanhos', []))}"
                 )
-                
+
                 st.write(
-                    f"**Nos informe se tem alguma ideia ou sugestão para a arte:** {s.get('sugestao','')}"
+                    f"**Descrição:** {s.get('descricao','')}"
+                )
+
+                st.write(
+                    f"**Sugestão para a arte:** {s.get('sugestao','')}"
                 )
 
                 st.write(
                     f"**Data do Evento:** {s.get('data_evento','')}"
                 )
-                
+
                 st.write(
                     f"**Horário do Evento:** {s.get('horario','')}"
                 )
 
-                
                 st.write(
-                    f"**Entregar arte até qual data?:** {s.get('data_entrega','')}"
+                    f"**Data de Entrega:** {s.get('data_entrega','')}"
                 )
 
-                # ===== APROVAÇÃO =====
                 if status == "Pendente":
+                    st.warning("⏳ Aguardando aprovação")
 
-                    col1, col2 = st.columns(2)
-
-
-                # ===== CONVERTER =====
                 elif status == "Aprovado":
-
-                    if st.button(
-                        "📋 Converter em Tarefa",
-                        key=f"converter_{titulo}"
-                    ):
-
-                        converter_solicitacao_em_tarefa(
-                            titulo
-                        )
-
-                        st.success(
-                            "✅ Convertida para o Kanban!"
-                        )
-
-                        st.rerun()
+                    st.success("✅ Solicitação aprovada")
 
                 elif status == "Tarefa":
-
-                    st.success(
-                        "✔ Já convertida em tarefa."
-                    )
+                    st.info("📋 Convertida em tarefa")
 
                 elif status == "Rejeitado":
-
-                    st.error(
-                        "❌ Solicitação rejeitada."
-                    )
-                    
+                    st.error("❌ Solicitação rejeitada")
                     
 def aprovacao_solicitacoes():
 
@@ -846,6 +851,10 @@ def aprovacao_solicitacoes():
 
             st.write(
                 f"**Solicitante:** {s.get('solicitante','')}"
+            )
+            
+            st.write(
+                f"**Formatos solicitados:** {', '.join(s.get('tamanhos', []))}"
             )
 
             st.write(

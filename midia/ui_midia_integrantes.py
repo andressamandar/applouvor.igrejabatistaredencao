@@ -417,6 +417,17 @@ def tarefas_integrante(nome):
                     st.write(
                         f"**Descrição:** {t.get('descricao','')}"
                     )
+                    
+                    tamanhos = t.get("tamanhos", [])
+
+                    if tamanhos:
+                        st.write(
+                            f"**Formatos solicitados:** {', '.join(tamanhos)}"
+                        )
+                    else:
+                        st.write(
+                            "**Formatos solicitados:** Não informado"
+                        )
 
                     st.write(
                         f"**Sugestão:** {t.get('sugestao','')}"

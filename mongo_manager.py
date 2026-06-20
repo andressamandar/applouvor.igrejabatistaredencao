@@ -430,6 +430,7 @@ def excluir_tarefa_midia(titulo):
 def criar_solicitacao_arte(
     ministerio,
     titulo,
+    tamanhos,
     descricao,
     sugestao,
     solicitante,
@@ -441,6 +442,7 @@ def criar_solicitacao_arte(
     db["midia_solicitacoes"].insert_one({
         "ministerio": ministerio,
         "titulo": titulo,
+        "tamanhos": tamanhos,
         "descricao": descricao,
         "sugestao": sugestao,
         "solicitante": solicitante,
@@ -483,6 +485,7 @@ def converter_solicitacao_em_tarefa(titulo):
     db["midia_tarefas"].insert_one({
         "titulo": solicitacao.get("titulo", ""),
         "ministerio": solicitacao.get("ministerio", ""),
+        "tamanhos": solicitacao.get("tamanhos", []),
         "descricao": solicitacao.get("descricao", ""),
         "sugestao": solicitacao.get("sugestao", ""),
         "solicitante": solicitacao.get("solicitante", ""),
