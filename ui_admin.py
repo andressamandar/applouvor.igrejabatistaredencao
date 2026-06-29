@@ -421,9 +421,17 @@ def interface_escalar_funcoes():
                             "Funcoes": [funcao]
                         })
 
+            salvar_escala(
+                data_escolhida,
+                tipo_culto,
+                escala_temp
+            )
 
-# ------------------ Editar Escala ------------------
-# ------------------ Editar Escala ------------------
+            st.session_state.success_msg_admin = (
+                f"✅ Escala de {data_escolhida} salva com sucesso!"
+            )
+
+            st.rerun()
 # ------------------ Editar Escala ------------------
 def interface_editar_escala():
     disp_df = st.session_state.get('disp_df', pd.DataFrame())
