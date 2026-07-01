@@ -3,6 +3,7 @@ import os
 import pandas as pd
 
 from mongo_manager import (
+    carregar_status_disponibilidade_midia,
     criar_solicitacao_arte,
     carregar_solicitacoes_arte,
     aprovar_solicitacao_arte,
@@ -225,10 +226,48 @@ def criar_escala():
 
     data = linha["Data"]
     tipo = linha["Tipo"]
+    
+    status = carregar_status_disponibilidade_midia()
+
+    preenchidos = status["preenchidos"]
+    faltando = status["faltando"]
+
+    if not faltando:
+        st.success(
+            "✅ Todos os integrantes já preencheram a disponibilidade."
+        )
+    else:
+        st.warning(
+            "⚠️ Ainda existem integrantes que não preencheram a disponibilidade."
+        )
+
+    with st.expander("📋 Status de Disponibilidade"):
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+
+            st.markdown(
+                "**✅ Disponibilidade Preenchida**"
+            )
+
+            for nome in preenchidos:
+                st.write(f"✅ {nome}")
+
+        with col2:
+
+            st.markdown(
+                "**❌ Falta Preencher Disponibilidade**"
+            )
+
+            for nome in faltando:
+                st.write(f"❌ {nome}")
 
     _, funcoes, _ = carregar_funcoes_midia()
 
     disponibilidade = carregar_disponibilidade_midia_por_data(data)
+    
+    
 
     if not disponibilidade:
         st.warning(

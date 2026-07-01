@@ -378,6 +378,80 @@ def salvar_integrante_midia(nome, funcoes):
 def excluir_integrante_midia(nome):
     db["midia_funcoes"].delete_one({"nome": nome})
     
+    from datetime import datetime
+
+def carregar_status_disponibilidade_midia():
+
+    integrantes = carregar_integrantes_midia()
+
+    # Datas cadastradas
+    datas = list(
+        db["midia_datas"].find(
+            {},
+            {"Data": 1, "_id": 0}
+        )
+    )
+
+    datas_cadastradas = {
+        d["Data"]
+        for d in datas
+        if d.get("Data")
+    }
+
+    # Datas já escaladas
+    escalas = list(
+        db["midia_escala"].find(
+            {},
+            {"Data": 1, "_id": 0}
+        )
+    )
+
+    datas_escaladas = {
+        e["Data"]
+        for e in escalas
+        if e.get("Data")
+    }
+
+    # Somente datas ainda não escaladas
+    datas_pendentes = (
+        datas_cadastradas - datas_escaladas
+    )
+
+    preenchidos = set()
+
+    disponibilidades = list(
+        db["midia_disponibilidades"].find(
+            {},
+            {"Nome": 1, "Data": 1, "_id": 0}
+        )
+    )
+
+    for disp in disponibilidades:
+
+        data = disp.get("Data")
+
+        if data not in datas_pendentes:
+            continue
+
+        nome = (
+            disp.get("Nome")
+            or disp.get("nome")
+        )
+
+        if nome:
+            preenchidos.add(nome)
+
+    faltando = [
+        nome
+        for nome in integrantes
+        if nome not in preenchidos
+    ]
+
+    return {
+        "preenchidos": sorted(preenchidos),
+        "faltando": sorted(faltando)
+    }
+
 def carregar_disponibilidade_midia_por_data(data_str):
     return list(
         db["midia_disponibilidades"].find(
@@ -498,5 +572,5 @@ def converter_solicitacao_em_tarefa(titulo):
 
     db["midia_solicitacoes"].update_one(
         {"titulo": titulo},
-        {"$set": {"status": "Convertido"}}
+        {"$set": {"status": "Em andamento"}}
     )
